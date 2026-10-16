@@ -107,14 +107,24 @@ VRAM_TIERS = [12, 16, 24, 32, 48]
 PARAMS = [
     # ---- Network
     {
-        "key": "rank", "label": "Rank (network dim)", "group": "Network", "type": "int", "min": 1, "max": 256,
+        "key": "rank",
+        "label": "Rank (network dim)",
+        "group": "Network",
+        "type": "int",
+        "min": 1,
+        "max": 256,
         "what": "Ukuran 'kapasitas' LoRA. LoRA menambahkan dua matriks kecil (A dan B) ke tiap layer; rank adalah lebar matriks itu.",
         "up": "Bisa menyimpan detail lebih banyak, file lebih besar, lebih mudah overfit (menghafal dataset).",
         "down": "File kecil, lebih general, tapi detail halus (wajah mirip, tekstur) bisa kurang.",
         "tip": "Karakter: 16-32. Style: 32-64. Jarang perlu > 64 untuk model modern.",
     },
     {
-        "key": "alpha", "label": "Alpha", "group": "Network", "type": "float", "min": 0.01, "max": 256,
+        "key": "alpha",
+        "label": "Alpha",
+        "group": "Network",
+        "type": "float",
+        "min": 0.01,
+        "max": 256,
         "what": "Faktor skala output LoRA. Kekuatan efektif = alpha / rank. Alpha = rank berarti skala 1.0.",
         "up": "Update LoRA lebih kuat - sama efeknya seperti menaikkan learning rate.",
         "down": "Update lebih lemah - butuh learning rate lebih besar untuk hasil yang sama.",
@@ -122,56 +132,95 @@ PARAMS = [
     },
     # ---- Optimizer
     {
-        "key": "lr", "label": "Learning rate", "group": "Optimizer", "type": "float", "min": 0, "max": 0.01, "step": "any",
+        "key": "lr",
+        "label": "Learning rate",
+        "group": "Optimizer",
+        "type": "float",
+        "min": 0,
+        "max": 0.01,
+        "step": "any",
         "what": "Seberapa besar langkah perubahan bobot di setiap step. Parameter paling penting.",
         "up": "Belajar lebih cepat, tapi bisa 'gosong' (warna jenuh, artefak, wajah rusak) atau merusak pengetahuan dasar model.",
         "down": "Lebih aman dan halus, tapi butuh step lebih banyak; terlalu kecil = LoRA tidak terasa efeknya.",
         "tip": "Qwen-Image 2.1: ~1e-4. Anima: ~2e-5 (rank 32). Kalau sample cepat rusak, turunkan 2x. Kalau di 2000 step belum mirip, naikkan 1.5x.",
     },
     {
-        "key": "optimizer", "label": "Optimizer", "group": "Optimizer", "type": "select",
+        "key": "optimizer",
+        "label": "Optimizer",
+        "group": "Optimizer",
+        "type": "select",
         "options": ["adamw8bit", "adamw", "prodigy", "adafactor"],
         "what": "Algoritma yang memperbarui bobot. AdamW8bit = AdamW versi hemat VRAM.",
-        "up": "-", "down": "-",
+        "up": "-",
+        "down": "-",
         "tip": "adamw8bit adalah pilihan aman. 'prodigy' mengatur LR sendiri (set lr = 1.0) - menarik untuk eksperimen tapi kurang bisa diprediksi.",
     },
     {
-        "key": "lr_scheduler", "label": "LR scheduler", "group": "Optimizer", "type": "select",
+        "key": "lr_scheduler",
+        "label": "LR scheduler",
+        "group": "Optimizer",
+        "type": "select",
         "options": ["constant", "cosine", "constant_with_warmup"],
         "what": "Bagaimana learning rate berubah sepanjang training.",
-        "up": "-", "down": "-",
+        "up": "-",
+        "down": "-",
         "tip": "constant paling mudah dipelajari (efek tiap checkpoint mudah dibandingkan). cosine menurunkan LR pelan-pelan ke 0 di akhir sehingga hasil akhir lebih halus.",
     },
     {
-        "key": "warmup_steps", "label": "Warmup steps", "group": "Optimizer", "type": "int", "min": 0, "max": 2000,
+        "key": "warmup_steps",
+        "label": "Warmup steps",
+        "group": "Optimizer",
+        "type": "int",
+        "min": 0,
+        "max": 2000,
         "what": "Jumlah step awal di mana LR naik bertahap dari 0. Hanya dipakai scheduler constant_with_warmup.",
-        "up": "Awal training lebih stabil.", "down": "-",
+        "up": "Awal training lebih stabil.",
+        "down": "-",
         "tip": "50-200 jika kamu melihat loss melonjak di awal.",
     },
     # ---- Training length
     {
-        "key": "steps", "label": "Total steps", "group": "Durasi", "type": "int", "min": 50, "max": 50000,
+        "key": "steps",
+        "label": "Total steps",
+        "group": "Durasi",
+        "type": "int",
+        "min": 50,
+        "max": 50000,
         "what": "Berapa kali bobot di-update. 1 step = 1 batch gambar.",
         "up": "LoRA makin kuat dan makin mirip dataset - sampai titik overfit (semua hasil terlihat seperti foto dataset).",
         "down": "Underfit - LoRA lemah / belum mirip.",
         "tip": "Lihat angka 'epoch' di panel ringkasan: karakter biasanya bagus di 60-120 epoch-gambar (steps x batch / jumlah gambar). Simpan banyak checkpoint lalu pilih yang terbaik.",
     },
     {
-        "key": "batch_size", "label": "Batch size", "group": "Durasi", "type": "int", "min": 1, "max": 16,
+        "key": "batch_size",
+        "label": "Batch size",
+        "group": "Durasi",
+        "type": "int",
+        "min": 1,
+        "max": 16,
         "what": "Jumlah gambar yang diproses bersamaan dalam 1 step.",
         "up": "Gradien lebih stabil, tapi VRAM naik dan 1 step 'melihat' lebih banyak gambar (kurangi steps).",
         "down": "Hemat VRAM.",
         "tip": "Biarkan 1 untuk VRAM <= 24GB. Kalau naik ke 2, kurangi steps kira-kira setengah.",
     },
     {
-        "key": "grad_accum", "label": "Gradient accumulation", "group": "Durasi", "type": "int", "min": 1, "max": 16,
+        "key": "grad_accum",
+        "label": "Gradient accumulation",
+        "group": "Durasi",
+        "type": "int",
+        "min": 1,
+        "max": 16,
         "what": "Mengumpulkan gradien beberapa step sebelum update - meniru batch besar tanpa VRAM besar.",
-        "up": "Seperti batch besar (lebih stabil) tapi training lebih lambat.", "down": "-",
+        "up": "Seperti batch besar (lebih stabil) tapi training lebih lambat.",
+        "down": "-",
         "tip": "Biasanya 1.",
     },
     # ---- Dataset
     {
-        "key": "resolutions", "label": "Resolusi (bucket)", "group": "Dataset", "type": "multiselect",
+        "key": "resolutions",
+        "label": "Resolusi (bucket)",
+        "group": "Dataset",
+        "type": "multiselect",
         "options": [512, 640, 768, 1024, 1280, 1536],
         "what": "Resolusi training. Gambar dikelompokkan ke 'bucket' berdasarkan rasio aspek, lalu di-resize. Memilih beberapa resolusi = multi-resolution training.",
         "up": "Detail lebih tajam, VRAM dan waktu naik signifikan (1024 ~ 4x lebih berat dari 512).",
@@ -179,126 +228,241 @@ PARAMS = [
         "tip": "Multi-resolusi [512, 768, 1024] membantu LoRA bekerja di berbagai ukuran. Jangan pilih resolusi lebih besar dari gambar dataset-mu.",
     },
     {
-        "key": "num_repeats", "label": "Repeats per gambar", "group": "Dataset", "type": "int", "min": 1, "max": 100,
+        "key": "num_repeats",
+        "label": "Repeats per gambar",
+        "group": "Dataset",
+        "type": "int",
+        "min": 1,
+        "max": 100,
         "what": "Berapa kali tiap gambar muncul per epoch.",
-        "up": "Berguna untuk menyeimbangkan dataset kecil vs besar (multi-dataset).", "down": "-",
+        "up": "Berguna untuk menyeimbangkan dataset kecil vs besar (multi-dataset).",
+        "down": "-",
         "tip": "Karena kita mengatur total steps, repeats tidak mengubah total belajar - biarkan 1 kecuali kamu menggabungkan beberapa dataset.",
     },
     {
-        "key": "caption_dropout", "label": "Caption dropout", "group": "Dataset", "type": "float", "min": 0, "max": 1, "step": 0.01,
+        "key": "caption_dropout",
+        "label": "Caption dropout",
+        "group": "Dataset",
+        "type": "float",
+        "min": 0,
+        "max": 1,
+        "step": 0.01,
         "what": "Peluang caption dikosongkan saat training.",
         "up": "LoRA belajar 'tanpa disuruh' - efek muncul walau tidak ditulis di prompt (bagus untuk style).",
         "down": "LoRA lebih patuh pada prompt.",
         "tip": "0.05 untuk karakter/konsep, 0.1-0.2 untuk style.",
     },
     {
-        "key": "shuffle_tokens", "label": "Shuffle tag", "group": "Dataset", "type": "bool",
+        "key": "shuffle_tokens",
+        "label": "Shuffle tag",
+        "group": "Dataset",
+        "type": "bool",
         "what": "Mengacak urutan tag (dipisah koma) setiap kali gambar dipakai.",
-        "up": "Model tidak menghafal urutan tag - bagus untuk caption berbasis tag (Anima).", "down": "-",
+        "up": "Model tidak menghafal urutan tag - bagus untuk caption berbasis tag (Anima).",
+        "down": "-",
         "tip": "Aktifkan untuk caption tag. Matikan untuk caption kalimat. Tidak berfungsi jika text embeddings di-cache.",
     },
     {
-        "key": "keep_tokens", "label": "Keep tokens", "group": "Dataset", "type": "int", "min": 0, "max": 10,
+        "key": "keep_tokens",
+        "label": "Keep tokens",
+        "group": "Dataset",
+        "type": "int",
+        "min": 0,
+        "max": 10,
         "what": "Jumlah tag pertama yang TIDAK ikut diacak (biasanya trigger word).",
-        "up": "-", "down": "-",
+        "up": "-",
+        "down": "-",
         "tip": "1 jika caption diawali trigger word.",
     },
     {
-        "key": "flip_x", "label": "Flip horizontal", "group": "Dataset", "type": "bool",
+        "key": "flip_x",
+        "label": "Flip horizontal",
+        "group": "Dataset",
+        "type": "bool",
         "what": "Menambah versi cermin dari tiap gambar.",
-        "up": "Data 2x lebih banyak.", "down": "-",
+        "up": "Data 2x lebih banyak.",
+        "down": "-",
         "tip": "JANGAN untuk karakter asimetris (poni satu sisi, tato, tulisan). Aman untuk style.",
     },
     {
-        "key": "rgba", "label": "Training RGBA (transparan)", "group": "Dataset", "type": "bool", "only_model": "qwen_image_2", "only_backend": "ai-toolkit",
+        "key": "rgba",
+        "label": "Training RGBA (transparan)",
+        "group": "Dataset",
+        "type": "bool",
+        "only_model": "qwen_image_2",
+        "only_backend": "ai-toolkit",
         "what": "Qwen-Image 2.1 punya VAE RGBA. Jika aktif, channel alpha gambar PNG ikut dipelajari.",
-        "up": "LoRA bisa menghasilkan aset dengan background transparan.", "down": "-",
+        "up": "LoRA bisa menghasilkan aset dengan background transparan.",
+        "down": "-",
         "tip": "Aktifkan hanya jika SEMUA gambar dataset adalah PNG transparan.",
     },
     # ---- Noise / timestep
     {
-        "key": "timestep_type", "label": "Timestep sampling", "group": "Lanjutan", "type": "select",
+        "key": "timestep_type",
+        "label": "Timestep sampling",
+        "group": "Lanjutan",
+        "type": "select",
         "options": ["sigmoid", "shift", "weighted", "linear", "lognorm_blend"],
         "what": "Seberapa sering training memilih tingkat noise tinggi vs rendah. Noise tinggi = komposisi & bentuk; noise rendah = detail & tekstur.",
-        "up": "-", "down": "-",
+        "up": "-",
+        "down": "-",
         "tip": "Gunakan default per model (Qwen 2.1: shift, Anima: weighted). Ubah hanya untuk eksperimen.",
     },
     {
-        "key": "content_or_style", "only_backend": "ai-toolkit", "label": "Fokus (content / style)", "group": "Lanjutan", "type": "select",
+        "key": "content_or_style",
+        "only_backend": "ai-toolkit",
+        "label": "Fokus (content / style)",
+        "group": "Lanjutan",
+        "type": "select",
         "options": ["balanced", "content", "style"],
         "what": "Bias pemilihan timestep di ai-toolkit: 'content' fokus bentuk/identitas, 'style' fokus tekstur/gaya.",
-        "up": "-", "down": "-",
+        "up": "-",
+        "down": "-",
         "tip": "balanced untuk karakter/konsep, style untuk LoRA gaya.",
     },
     {
-        "key": "discrete_flow_shift", "only_backend": "sd-scripts", "label": "Flow shift (sd-scripts)", "group": "Lanjutan", "type": "float", "min": 0.1, "max": 10, "step": 0.1,
+        "key": "discrete_flow_shift",
+        "only_backend": "sd-scripts",
+        "label": "Flow shift (sd-scripts)",
+        "group": "Lanjutan",
+        "type": "float",
+        "min": 0.1,
+        "max": 10,
+        "step": 0.1,
         "what": "Menggeser distribusi timestep di Rectified Flow (sd-scripts, timestep_sampling=shift).",
-        "up": "Lebih banyak latihan di noise tinggi (struktur).", "down": "Lebih banyak di detail.",
+        "up": "Lebih banyak latihan di noise tinggi (struktur).",
+        "down": "Lebih banyak di detail.",
         "tip": "Default 1.0 untuk Anima.",
     },
     # ---- Memory
     {
-        "key": "quantize", "only_backend": "ai-toolkit", "label": "Quantize model (8-bit)", "group": "Memori", "type": "bool",
+        "key": "quantize",
+        "only_backend": "ai-toolkit",
+        "label": "Quantize model (8-bit)",
+        "group": "Memori",
+        "type": "bool",
         "what": "Menyimpan bobot model dasar dalam 8-bit agar muat di VRAM.",
-        "up": "Hemat VRAM sangat besar.", "down": "Sedikit lebih presisi, tapi butuh VRAM jauh lebih banyak.",
+        "up": "Hemat VRAM sangat besar.",
+        "down": "Sedikit lebih presisi, tapi butuh VRAM jauh lebih banyak.",
         "tip": "Qwen 2.1: aktif (bobot Comfy-Org memang sudah int8). Anima (2B): tidak perlu.",
     },
     {
-        "key": "low_vram", "only_backend": "ai-toolkit", "label": "Low VRAM mode", "group": "Memori", "type": "bool",
+        "key": "low_vram",
+        "only_backend": "ai-toolkit",
+        "label": "Low VRAM mode",
+        "group": "Memori",
+        "type": "bool",
         "what": "ai-toolkit memindahkan bagian model ke CPU saat tidak dipakai.",
-        "up": "Muat di GPU lebih kecil.", "down": "Lebih cepat jika VRAM cukup.",
+        "up": "Muat di GPU lebih kecil.",
+        "down": "Lebih cepat jika VRAM cukup.",
         "tip": "Aktifkan untuk <= 24GB pada Qwen 2.1.",
     },
     {
-        "key": "layer_offloading", "only_backend": "ai-toolkit", "label": "Layer offloading", "group": "Memori", "type": "bool",
+        "key": "layer_offloading",
+        "only_backend": "ai-toolkit",
+        "label": "Layer offloading",
+        "group": "Memori",
+        "type": "bool",
         "what": "Menyimpan sebagian layer transformer di RAM dan memindahkannya ke GPU saat dibutuhkan.",
-        "up": "Bisa training model besar di 12-16GB.", "down": "-",
+        "up": "Bisa training model besar di 12-16GB.",
+        "down": "-",
         "tip": "Butuh RAM sistem besar (32GB+) dan training jadi lebih lambat.",
     },
     {
-        "key": "cache_text_embeddings", "only_backend": "ai-toolkit", "label": "Cache text embeddings", "group": "Memori", "type": "bool",
+        "key": "cache_text_embeddings",
+        "only_backend": "ai-toolkit",
+        "label": "Cache text embeddings",
+        "group": "Memori",
+        "type": "bool",
         "what": "Menghitung output text encoder sekali di awal, lalu text encoder dibuang dari VRAM.",
-        "up": "Hemat VRAM besar (Qwen3-VL-8B ~ 8-16GB).", "down": "-",
+        "up": "Hemat VRAM besar (Qwen3-VL-8B ~ 8-16GB).",
+        "down": "-",
         "tip": "Konsekuensi: trigger word harus ada di caption file, shuffle tag & caption dropout jadi tetap (tidak acak per step).",
     },
     {
-        "key": "gradient_checkpointing", "label": "Gradient checkpointing", "group": "Memori", "type": "bool",
+        "key": "gradient_checkpointing",
+        "label": "Gradient checkpointing",
+        "group": "Memori",
+        "type": "bool",
         "what": "Menghitung ulang aktivasi saat backward daripada menyimpannya.",
-        "up": "Hemat VRAM banyak, ~20-30% lebih lambat.", "down": "-",
+        "up": "Hemat VRAM banyak, ~20-30% lebih lambat.",
+        "down": "-",
         "tip": "Hampir selalu aktif.",
     },
     {
-        "key": "blocks_to_swap", "only_backend": "sd-scripts", "label": "Blocks to swap (sd-scripts)", "group": "Memori", "type": "int", "min": 0, "max": 34,
+        "key": "blocks_to_swap",
+        "only_backend": "sd-scripts",
+        "label": "Blocks to swap (sd-scripts)",
+        "group": "Memori",
+        "type": "int",
+        "min": 0,
+        "max": 34,
         "what": "Jumlah blok transformer yang ditukar CPU<->GPU (sd-scripts).",
-        "up": "VRAM turun, training melambat.", "down": "-",
+        "up": "VRAM turun, training melambat.",
+        "down": "-",
         "tip": "0 jika VRAM cukup. Coba 8-16 untuk 8-10GB.",
     },
     # ---- Saving / sampling
     {
-        "key": "save_every", "label": "Simpan tiap N step", "group": "Simpan & Preview", "type": "int", "min": 10, "max": 10000,
+        "key": "save_every",
+        "label": "Simpan tiap N step",
+        "group": "Simpan & Preview",
+        "type": "int",
+        "min": 10,
+        "max": 10000,
         "what": "Interval menyimpan checkpoint LoRA.",
-        "up": "-", "down": "Lebih banyak pilihan checkpoint untuk dibandingkan.",
+        "up": "-",
+        "down": "Lebih banyak pilihan checkpoint untuk dibandingkan.",
         "tip": "Simpan sering (tiap 200-250 step). Checkpoint TERAKHIR sering bukan yang TERBAIK.",
     },
     {
-        "key": "max_saves", "label": "Maks checkpoint disimpan", "group": "Simpan & Preview", "type": "int", "min": 1, "max": 100,
+        "key": "max_saves",
+        "label": "Maks checkpoint disimpan",
+        "group": "Simpan & Preview",
+        "type": "int",
+        "min": 1,
+        "max": 100,
         "what": "Checkpoint lama dihapus jika melebihi jumlah ini.",
-        "up": "-", "down": "-", "tip": "Untuk belajar, simpan banyak (10+) agar bisa membandingkan.",
+        "up": "-",
+        "down": "-",
+        "tip": "Untuk belajar, simpan banyak (10+) agar bisa membandingkan.",
     },
     {
-        "key": "sample_every", "label": "Preview tiap N step", "group": "Simpan & Preview", "type": "int", "min": 10, "max": 10000,
+        "key": "sample_every",
+        "label": "Preview tiap N step",
+        "group": "Simpan & Preview",
+        "type": "int",
+        "min": 10,
+        "max": 10000,
         "what": "Interval membuat gambar preview dari prompt di bawah.",
-        "up": "Training lebih cepat.", "down": "Lebih mudah melihat kapan LoRA mulai bagus / mulai overfit.",
+        "up": "Training lebih cepat.",
+        "down": "Lebih mudah melihat kapan LoRA mulai bagus / mulai overfit.",
         "tip": "Samakan dengan 'simpan tiap N step' supaya tiap checkpoint punya preview.",
     },
     {
-        "key": "guidance", "label": "Guidance (CFG) preview", "group": "Simpan & Preview", "type": "float", "min": 1, "max": 15, "step": 0.5,
-        "what": "Seberapa kuat preview mengikuti prompt.", "up": "-", "down": "-",
+        "key": "guidance",
+        "label": "Guidance (CFG) preview",
+        "group": "Simpan & Preview",
+        "type": "float",
+        "min": 1,
+        "max": 15,
+        "step": 0.5,
+        "what": "Seberapa kuat preview mengikuti prompt.",
+        "up": "-",
+        "down": "-",
         "tip": "Qwen 2.1: 3.0. Anima: 4-5.",
     },
     {
-        "key": "sample_steps", "label": "Sampling steps preview", "group": "Simpan & Preview", "type": "int", "min": 1, "max": 100,
-        "what": "Jumlah langkah denoising untuk gambar preview.", "up": "-", "down": "-", "tip": "25-30.",
+        "key": "sample_steps",
+        "label": "Sampling steps preview",
+        "group": "Simpan & Preview",
+        "type": "int",
+        "min": 1,
+        "max": 100,
+        "what": "Jumlah langkah denoising untuk gambar preview.",
+        "up": "-",
+        "down": "-",
+        "tip": "25-30.",
     },
 ]
 
@@ -348,7 +512,9 @@ def default_sample_prompts(model: str, goal: str, trigger: str) -> list:
     ]
 
 
-def recommend(model: str, goal: str, vram: int, num_images: int, backend: str = "ai-toolkit", trigger: str = "") -> dict:
+def recommend(
+    model: str, goal: str, vram: int, num_images: int, backend: str = "ai-toolkit", trigger: str = ""
+) -> dict:
     """Return {params, reasons, warnings} for the given situation."""
     if model not in MODELS:
         raise ValueError(f"unknown model {model}")
@@ -406,16 +572,31 @@ def recommend(model: str, goal: str, vram: int, num_images: int, backend: str = 
             "Model di-load dari repack Comfy-Org yang sudah int8 (convrot8) - hemat VRAM tanpa re-quantize.",
         ]
         if p["cache_text_embeddings"]:
-            reasons.append("Text encoder Qwen3-VL-8B di-cache agar VRAM cukup untuk DiT. Pastikan trigger word sudah tertulis di setiap caption.")
+            reasons.append(
+                "Text encoder Qwen3-VL-8B di-cache agar VRAM cukup untuk DiT. Pastikan trigger word sudah tertulis di setiap caption."
+            )
         if vram <= 12:
-            warnings.append("12GB sangat mepet untuk Qwen-Image 2.1. Layer offloading diaktifkan (butuh RAM sistem 32GB+), resolusi dibatasi 768, dan training akan lambat.")
-    elif model in ('flux2_klein_4b','zimage'):
-        p.update(rank=32,lr=1e-4,steps=2000,timestep_type='weighted',quantize=True,low_vram=vram<32,
-                 cache_text_embeddings=True,resolutions=[768,1024],caption_dropout=0.0)
-        reasons += ['Preset awal eksperimen LoRA: rank 32, LR 1e-4, 2.000 langkah; belum dibenchmark di PC ini.',
-                    'Text embeddings di-cache untuk mengurangi kebutuhan memori; caption tetap dan tidak di-shuffle.',
-                    'Gunakan checkpoint dan eval yang konsisten untuk memilih durasi; jumlah langkah ini bukan jaminan hasil.']
-        warnings.append('Model dan komponen encoder/VAE dapat memerlukan unduhan besar saat pertama dijalankan.')
+            warnings.append(
+                "12GB sangat mepet untuk Qwen-Image 2.1. Layer offloading diaktifkan (butuh RAM sistem 32GB+), resolusi dibatasi 768, dan training akan lambat."
+            )
+    elif model in ("flux2_klein_4b", "zimage"):
+        p.update(
+            rank=32,
+            lr=1e-4,
+            steps=2000,
+            timestep_type="weighted",
+            quantize=True,
+            low_vram=vram < 32,
+            cache_text_embeddings=True,
+            resolutions=[768, 1024],
+            caption_dropout=0.0,
+        )
+        reasons += [
+            "Preset awal eksperimen LoRA: rank 32, LR 1e-4, 2.000 langkah; belum dibenchmark di PC ini.",
+            "Text embeddings di-cache untuk mengurangi kebutuhan memori; caption tetap dan tidak di-shuffle.",
+            "Gunakan checkpoint dan eval yang konsisten untuk memilih durasi; jumlah langkah ini bukan jaminan hasil.",
+        ]
+        warnings.append("Model dan komponen encoder/VAE dapat memerlukan unduhan besar saat pertama dijalankan.")
     else:  # anima
         p["rank"] = 32
         p["lr"] = 2e-5
@@ -449,10 +630,14 @@ def recommend(model: str, goal: str, vram: int, num_images: int, backend: str = 
     p["sample_prompts"] = default_sample_prompts(model, goal, trigger)
 
     epochs = p["steps"] * p["batch_size"] / n
-    reasons.append(f"{p['steps']} step untuk {n} gambar = ~{epochs:.0f} kali tiap gambar dilihat. Checkpoint disimpan tiap {p['save_every']} step.")
+    reasons.append(
+        f"{p['steps']} step untuk {n} gambar = ~{epochs:.0f} kali tiap gambar dilihat. Checkpoint disimpan tiap {p['save_every']} step."
+    )
 
     if n < 8:
-        warnings.append(f"Dataset hanya {n} gambar. Minimal 10-15 gambar berkualitas sangat disarankan agar LoRA tidak menghafal.")
+        warnings.append(
+            f"Dataset hanya {n} gambar. Minimal 10-15 gambar berkualitas sangat disarankan agar LoRA tidak menghafal."
+        )
     if goal == "style" and n < 25:
         warnings.append("LoRA style idealnya 30+ gambar dengan subjek yang beragam.")
 
@@ -469,7 +654,13 @@ def analyze(model: str, params: dict, num_images: int) -> dict:
     bs = int(params.get("batch_size") or 1) * int(params.get("grad_accum") or 1)
     vram = estimate_vram(model, params)
     if params.get("_vram") and vram["total_gb"] > float(params["_vram"]):
-        notes.insert(0, {"level": "bad", "msg": f"Perkiraan VRAM ~{vram['total_gb']} GB melebihi GPU {params['_vram']} GB. Turunkan resolusi, aktifkan cache/low VRAM, atau offloading."})
+        notes.insert(
+            0,
+            {
+                "level": "bad",
+                "msg": f"Perkiraan VRAM ~{vram['total_gb']} GB melebihi GPU {params['_vram']} GB. Turunkan resolusi, aktifkan cache/low VRAM, atau offloading.",
+            },
+        )
     return {
         "notes": notes,
         "effective_lr": float(params.get("lr") or 0) * float(params.get("alpha") or rank) / rank,
@@ -499,7 +690,10 @@ def _analyze_notes(model: str, params: dict, num_images: int) -> list:
             add("warn", "Prodigy mengatur LR sendiri: set learning rate ke 1.0.")
     elif model == "anima":
         if eff_lr > 1e-4:
-            add("bad", f"LR efektif {eff_lr:.1e} sangat tinggi untuk Anima (saran ~2e-5). Kemungkinan besar hasil gosong / merusak model dasar.")
+            add(
+                "bad",
+                f"LR efektif {eff_lr:.1e} sangat tinggi untuk Anima (saran ~2e-5). Kemungkinan besar hasil gosong / merusak model dasar.",
+            )
         elif eff_lr > 5e-5:
             add("warn", f"LR efektif {eff_lr:.1e} cukup tinggi untuk Anima. Awasi preview dengan teliti.")
     elif model == "qwen_image_2":
@@ -511,7 +705,10 @@ def _analyze_notes(model: str, params: dict, num_images: int) -> list:
     if alpha != rank:
         add("info", f"alpha/rank = {alpha/rank:.2f}: learning rate efektif = {eff_lr:.1e}.")
     if epochs > 250:
-        add("warn", f"Tiap gambar dilihat ~{epochs:.0f} kali - risiko overfit tinggi. Pastikan simpan checkpoint sering.")
+        add(
+            "warn",
+            f"Tiap gambar dilihat ~{epochs:.0f} kali - risiko overfit tinggi. Pastikan simpan checkpoint sering.",
+        )
     elif epochs < 30:
         add("warn", f"Tiap gambar hanya dilihat ~{epochs:.0f} kali - LoRA kemungkinan masih lemah.")
     else:
@@ -521,7 +718,10 @@ def _analyze_notes(model: str, params: dict, num_images: int) -> list:
     if params.get("cache_text_embeddings") and params.get("shuffle_tokens"):
         add("warn", "Shuffle tag tidak berfungsi saat text embeddings di-cache.")
     if params.get("cache_text_embeddings") and not params.get("_captions_have_trigger", True):
-        add("bad", "Text embeddings di-cache tapi ada caption tanpa trigger word - trigger tidak akan dipelajari untuk gambar itu.")
+        add(
+            "bad",
+            "Text embeddings di-cache tapi ada caption tanpa trigger word - trigger tidak akan dipelajari untuk gambar itu.",
+        )
     res = params.get("resolutions") or []
     if model == "qwen_image_2" and max(res or [0]) > 1024 and not params.get("_vram_ok_hi", True):
         add("warn", "Resolusi > 1024 butuh VRAM sangat besar.")
@@ -550,4 +750,5 @@ def public_catalog() -> dict:
 
 # Registry extensions are shared by the wizard and research catalog.
 from .model_catalog import EXTRA_MODELS
+
 MODELS.update(EXTRA_MODELS)

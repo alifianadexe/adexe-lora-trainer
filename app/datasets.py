@@ -28,8 +28,9 @@ def _meta_path(d: Path) -> Path:
 
 
 def _read_meta(d: Path) -> dict:
-    stored=database.dataset_meta(d.name)
-    if stored is not None:return stored
+    stored = database.dataset_meta(d.name)
+    if stored is not None:
+        return stored
     mp = _meta_path(d)
     if mp.exists():
         try:
@@ -40,7 +41,7 @@ def _read_meta(d: Path) -> dict:
 
 
 def _write_meta(d: Path, meta: dict):
-    database.put_dataset(d.name,meta)
+    database.put_dataset(d.name, meta)
 
 
 def dataset_dir(name: str) -> Path:
@@ -82,7 +83,11 @@ def summary(name: str) -> dict:
     meta = _read_meta(home)
     d = dataset_dir(name)
     imgs = images_in(d)
-    captioned = sum(1 for p in imgs if p.with_suffix(".txt").exists() and p.with_suffix(".txt").read_text(encoding="utf-8", errors="ignore").strip())
+    captioned = sum(
+        1
+        for p in imgs
+        if p.with_suffix(".txt").exists() and p.with_suffix(".txt").read_text(encoding="utf-8", errors="ignore").strip()
+    )
     return {
         "name": name,
         "path": str(d),
@@ -122,7 +127,8 @@ def update_meta(name: str, data: dict) -> dict:
 
 
 def delete(name: str):
-    with database.connect() as c:c.execute('DELETE FROM datasets WHERE name=?',(_safe_name(name),))
+    with database.connect() as c:
+        c.execute("DELETE FROM datasets WHERE name=?", (_safe_name(name),))
     home = _home_dir(name)
     if home.exists():
         shutil.rmtree(home)  # linked folders are left untouched
@@ -145,14 +151,16 @@ def details(name: str) -> dict:
             mode = "?"
         bucket = "%dpx" % (min(w, h) // 256 * 256) if w else "?"
         sizes[bucket] = sizes.get(bucket, 0) + 1
-        items.append({
-            "file": p.name,
-            "caption": cap,
-            "width": w,
-            "height": h,
-            "alpha": mode in ("RGBA", "LA", "P"),
-            "size_kb": round(p.stat().st_size / 1024),
-        })
+        items.append(
+            {
+                "file": p.name,
+                "caption": cap,
+                "width": w,
+                "height": h,
+                "alpha": mode in ("RGBA", "LA", "P"),
+                "size_kb": round(p.stat().st_size / 1024),
+            }
+        )
     s["items"] = items
     s["stats"] = _stats(items, s["trigger_word"])
     return s
@@ -169,7 +177,12 @@ def _stats(items: list, trigger: str) -> dict:
     elif n < 10:
         warnings.append({"level": "warn", "msg": f"Hanya {n} gambar. 15-40 gambar berkualitas biasanya ideal."})
     if small:
-        warnings.append({"level": "warn", "msg": f"{len(small)} gambar sisi terpendeknya < 512px - akan blur/jelek saat di-upscale ke bucket."})
+        warnings.append(
+            {
+                "level": "warn",
+                "msg": f"{len(small)} gambar sisi terpendeknya < 512px - akan blur/jelek saat di-upscale ke bucket.",
+            }
+        )
     if missing:
         warnings.append({"level": "warn", "msg": f"{len(missing)} gambar belum punya caption."})
     if no_trig:

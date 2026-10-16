@@ -2,7 +2,7 @@ __pycache__/
 *.pyc
 .venv/
 venv/
-data/
-studio-data/
-backends/
+/data/
+/studio-data/
+/backends/
 *.log

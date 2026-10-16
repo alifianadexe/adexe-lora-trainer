@@ -12,41 +12,110 @@ export default function JobsPage() {
   const { data, loading } = useApi<Job[]>("/api/jobs", 3000);
   const [sel, setSel] = useState<string[]>([]);
   const router = useRouter();
-  const [query,setQuery]=useState(""); const [model,setModel]=useState("");
-  const filtered=data?.filter(j=>(!model||j.model===model)&&`${j.name} ${j.dataset} ${j.params.lr} ${j.params.rank} ${j.status}`.toLowerCase().includes(query.toLowerCase()));
+  const [query, setQuery] = useState("");
+  const [model, setModel] = useState("");
+  const filtered = data?.filter(
+    (j) =>
+      (!model || j.model === model) &&
+      `${j.name} ${j.dataset} ${j.params.lr} ${j.params.rank} ${j.status}`.toLowerCase().includes(query.toLowerCase()),
+  );
   const toggle = (id: string) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id].slice(-6)));
   return (
     <div>
-      <PageHeader title="Training & evaluasi" subtitle="Semua eksperimenmu. Centang 2+ run untuk membandingkan parameter, kurva loss, dan hasil evaluasinya."
-        actions={<>
-          <button className="btn" disabled={sel.length < 2} onClick={() => router.push(`/compare/?ids=${sel.join(",")}`)}><GitCompareArrows className="size-4" />Bandingkan ({sel.length})</button>
-          <Link href="/train/" className="btn btn-primary"><Plus className="size-4" />Training baru</Link>
-        </>} />
-      <div className="mb-5 flex flex-wrap gap-3"><input className="input max-w-md" aria-label="Cari eksperimen" placeholder="Cari nama, dataset, LR, rank, atau status…" value={query} onChange={e=>setQuery(e.target.value)}/><select aria-label="Filter model" className="input max-w-xs" value={model} onChange={e=>setModel(e.target.value)}><option value="">Semua model</option>{[...new Set(data?.map(j=>j.model)||[])].map(m=><option key={m} value={m}>{modelLabel(m)}</option>)}</select></div>
-      {loading ? <Loading /> : !data?.length ? (
-        <Card><Empty icon={<LineChart className="size-5" />} title="Belum ada eksperimen terhubung">Buat eksperimen baru atau <Link href="/workspace/" className="text-brand-400">impor config training yang sudah ada</Link>.</Empty></Card>
+      <PageHeader
+        title="Training & evaluasi"
+        subtitle="Semua eksperimenmu. Centang 2+ run untuk membandingkan parameter, kurva loss, dan hasil evaluasinya."
+        actions={
+          <>
+            <button className="btn" disabled={sel.length < 2} onClick={() => router.push(`/compare/?ids=${sel.join(",")}`)}>
+              <GitCompareArrows className="size-4" />
+              Bandingkan ({sel.length})
+            </button>
+            <Link href="/train/" className="btn btn-primary">
+              <Plus className="size-4" />
+              Training baru
+            </Link>
+          </>
+        }
+      />
+      <div className="mb-5 flex flex-wrap gap-3">
+        <input
+          className="input max-w-md"
+          aria-label="Cari eksperimen"
+          placeholder="Cari nama, dataset, LR, rank, atau status…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <select aria-label="Filter model" className="input max-w-xs" value={model} onChange={(e) => setModel(e.target.value)}>
+          <option value="">Semua model</option>
+          {[...new Set(data?.map((j) => j.model) || [])].map((m) => (
+            <option key={m} value={m}>
+              {modelLabel(m)}
+            </option>
+          ))}
+        </select>
+      </div>
+      {loading ? (
+        <Loading />
+      ) : !data?.length ? (
+        <Card>
+          <Empty icon={<LineChart className="size-5" />} title="Belum ada eksperimen terhubung">
+            Buat eksperimen baru atau{" "}
+            <Link href="/workspace/" className="text-brand-400">
+              impor config training yang sudah ada
+            </Link>
+            .
+          </Empty>
+        </Card>
       ) : (
         <Card className="overflow-x-auto p-0">
           <table className="w-full min-w-[900px] text-left text-[13.5px]">
             <thead className="border-b border-white/[0.07] text-[11.5px] uppercase tracking-wider text-ink-400">
-              <tr>{["", "Run", "Model", "Rank", "LR", "Steps", "Progress", "Evaluasi", "Status", "Dibuat"].map((h) => <th key={h} className="px-4 py-3 font-medium">{h}</th>)}</tr>
+              <tr>
+                {["", "Run", "Model", "Rank", "LR", "Steps", "Progress", "Evaluasi", "Status", "Dibuat"].map((h) => (
+                  <th key={h} className="px-4 py-3 font-medium">
+                    {h}
+                  </th>
+                ))}
+              </tr>
             </thead>
             <tbody>
               {filtered?.map((j) => {
                 const evs = Object.keys(j.evaluations || {}).length;
                 return (
-                  <tr key={j.id} className={cx("cursor-pointer border-b border-white/[0.04] transition hover:bg-white/[0.03]", sel.includes(j.id) && "bg-brand-500/[0.06]")}
-                    onClick={() => router.push(`/jobs/view/?id=${j.id}`)}>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}><input type="checkbox" className="accent-violet-500" checked={sel.includes(j.id)} onChange={() => toggle(j.id)} /></td>
-                    <td className="px-4 py-3"><div className="font-medium">{j.name}</div>{j.notes && <div className="max-w-[260px] truncate text-xs text-ink-400">{j.notes}</div>}</td>
-                    <td className="px-4 py-3">{modelLabel(j.model)}<div className="text-xs text-ink-400">{j.dataset}</div></td>
+                  <tr
+                    key={j.id}
+                    className={cx(
+                      "cursor-pointer border-b border-white/[0.04] transition hover:bg-white/[0.03]",
+                      sel.includes(j.id) && "bg-brand-500/[0.06]",
+                    )}
+                    onClick={() => router.push(`/jobs/view/?id=${j.id}`)}
+                  >
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" className="accent-violet-500" checked={sel.includes(j.id)} onChange={() => toggle(j.id)} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium">{j.name}</div>
+                      {j.notes && <div className="max-w-[260px] truncate text-xs text-ink-400">{j.notes}</div>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {modelLabel(j.model)}
+                      <div className="text-xs text-ink-400">{j.dataset}</div>
+                    </td>
                     <td className="px-4 py-3 tabular-nums">{j.params.rank}</td>
                     <td className="px-4 py-3 font-mono text-xs">{fmtNum(j.params.lr)}</td>
                     <td className="px-4 py-3 tabular-nums">{j.params.steps}</td>
-                    <td className="w-44 px-4 py-3"><Progress value={100 * j.progress.step / Math.max(1, j.progress.total)} className="h-1.5" />
-                      <div className="mt-1 text-xs tabular-nums text-ink-400">{j.progress.step}/{j.progress.total}{j.progress.loss != null && ` · ${fmtNum(j.progress.loss)}`}</div></td>
+                    <td className="w-44 px-4 py-3">
+                      <Progress value={(100 * j.progress.step) / Math.max(1, j.progress.total)} className="h-1.5" />
+                      <div className="mt-1 text-xs tabular-nums text-ink-400">
+                        {j.progress.step}/{j.progress.total}
+                        {j.progress.loss != null && ` · ${fmtNum(j.progress.loss)}`}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-xs text-ink-400">{evs ? `${evs} checkpoint` : "–"}</td>
-                    <td className="px-4 py-3"><StatusBadge status={j.status} /></td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={j.status} />
+                    </td>
                     <td className="px-4 py-3 text-xs text-ink-400">{fmtTime(j.created)}</td>
                   </tr>
                 );

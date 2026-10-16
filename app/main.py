@@ -13,21 +13,31 @@ from . import builders, captioner, datasets, insights, presets, system
 from .config import WEB_DIR, backend_status, load_settings, save_settings
 from .jobs import JobManager
 from . import workspace
-from . import access,data_routes
+from . import access, data_routes
 from . import model_catalog
 
 app = FastAPI(title="Adexe LoRA Studio")
 # the Next.js dev server runs on another port; this is a local single-user tool
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000","http://127.0.0.1:3000"], allow_methods=["*"], allow_headers=["*"],allow_credentials=True)
-app.middleware('http')(access.guard)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=True,
+)
+app.middleware("http")(access.guard)
 jobs = JobManager()
 app.include_router(data_routes.router(jobs))
 
-@app.get('/api/access/info')
-def access_info(request:Request):return access.info(request)
 
-@app.post('/api/access/login')
-def access_login(request:Request,data:dict):return access.login(request,data.get('code',''))
+@app.get("/api/access/info")
+def access_info(request: Request):
+    return access.info(request)
+
+
+@app.post("/api/access/login")
+def access_login(request: Request, data: dict):
+    return access.login(request, data.get("code", ""))
 
 
 @app.exception_handler(ValueError)
@@ -71,8 +81,10 @@ def put_settings(data: dict):
 def catalog():
     return presets.public_catalog()
 
-@app.get('/api/model-lab')
-def model_lab():return model_catalog.catalog()
+
+@app.get("/api/model-lab")
+def model_lab():
+    return model_catalog.catalog()
 
 
 class RecommendReq(BaseModel):
@@ -112,6 +124,7 @@ class PreviewReq(BaseModel):
 @app.post("/api/preview-config")
 def preview_config(req: PreviewReq):
     from .config import JOBS_DIR
+
     job = req.model_dump()
     ds = str(datasets.dataset_dir(req.dataset))
     r = builders.render(job, ds, JOBS_DIR / "_preview")
@@ -215,7 +228,9 @@ class AutoCaptionReq(BaseModel):
 @app.post("/api/datasets/{name}/autocaption")
 def autocaption(name: str, req: AutoCaptionReq):
     info = datasets.details(name)
-    targets = [i for i in info["items"] if (req.overwrite or not i["caption"]) and (not req.files or i["file"] in req.files)]
+    targets = [
+        i for i in info["items"] if (req.overwrite or not i["caption"]) and (not req.files or i["file"] in req.files)
+    ]
     with _caption_lock:
         t = _caption_tasks.get(name)
         if t and t["running"]:
@@ -229,13 +244,17 @@ def autocaption(name: str, req: AutoCaptionReq):
                 break
             task["current"] = item["file"]
             try:
-                cap = captioner.caption_image(datasets.image_path(name, item["file"]), req.style, info["trigger_word"], req.extra)
+                cap = captioner.caption_image(
+                    datasets.image_path(name, item["file"]), req.style, info["trigger_word"], req.extra
+                )
                 datasets.set_caption(name, item["file"], cap)
                 task["ok"] = task.get("ok", 0) + 1
             except Exception as e:
                 task["errors"].append(f"{item['file']}: {e}")
                 if len(task["errors"]) >= 3 and not task.get("ok"):
-                    task["errors"].append("Dihentikan: 3 kegagalan berturut-turut. Cek endpoint auto-caption di Pengaturan.")
+                    task["errors"].append(
+                        "Dihentikan: 3 kegagalan berturut-turut. Cek endpoint auto-caption di Pengaturan."
+                    )
                     break
             task["done"] += 1
         task["running"] = False
@@ -260,15 +279,18 @@ def autocaption_cancel(name: str):
 
 # --------------------------------------------------------------------------- jobs
 
+
 @app.get("/api/workspace")
 def workspace_info():
     info = workspace.project_summary()
     info["job_id"] = next((j["id"] for j in jobs.list() if j["name"] == info.get("name")), None)
     return info
 
+
 @app.get("/api/workspace/sample/{name}")
 def workspace_sample(name: str):
     return FileResponse(workspace.project_sample(name))
+
 
 @app.post("/api/jobs/import-config")
 def import_job_config(data: dict):
@@ -374,14 +396,22 @@ def compare(ids: str):
     for jid in [i for i in ids.split(",") if i][:6]:
         job = jobs.get(jid)
         summ = insights.summarize(jobs.metrics(jid))
-        out.append({
-            "id": job["id"], "name": job["name"], "model": job["model"], "status": job["status"],
-            "dataset": job["dataset"], "notes": job.get("notes", ""), "params": job["params"],
-            "progress": job["progress"], "evaluations": job.get("evaluations", {}),
-            "advice": insights.evaluation_advice(job),
-            "loss": {k: summ.get(k) for k in ("first_ema", "last_ema", "min", "change_pct", "noise")},
-            "series": [{"step": p["step"], "ema": p["ema"]} for p in summ.get("series", [])],
-        })
+        out.append(
+            {
+                "id": job["id"],
+                "name": job["name"],
+                "model": job["model"],
+                "status": job["status"],
+                "dataset": job["dataset"],
+                "notes": job.get("notes", ""),
+                "params": job["params"],
+                "progress": job["progress"],
+                "evaluations": job.get("evaluations", {}),
+                "advice": insights.evaluation_advice(job),
+                "loss": {k: summ.get(k) for k in ("first_ema", "last_ema", "min", "change_pct", "noise")},
+                "series": [{"step": p["step"], "ema": p["ema"]} for p in summ.get("series", [])],
+            }
+        )
     return out
 
 
@@ -390,7 +420,10 @@ def compare(ids: str):
 if (WEB_DIR / "index.html").exists():
     app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
 else:
+
     @app.get("/", response_class=HTMLResponse)
     def _no_frontend():
-        return ("<h2>Frontend belum di-build</h2><p>Jalankan <code>cd frontend && npm install && npm run build</code>, "
-                "atau mode dev: <code>npm run dev</code> lalu buka http://localhost:3000</p>")
+        return (
+            "<h2>Frontend belum di-build</h2><p>Jalankan <code>cd frontend && npm install && npm run build</code>, "
+            "atau mode dev: <code>npm run dev</code> lalu buka http://localhost:3000</p>"
+        )

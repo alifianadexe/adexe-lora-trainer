@@ -14,12 +14,36 @@ export function ThemeSwitch() {
   useEffect(() => {
     if (!ready) return;
     const media = matchMedia("(prefers-color-scheme: dark)");
-    const apply = () => { document.documentElement.dataset.theme = theme === "system" ? (media.matches ? "dark" : "light") : theme; };
-    apply(); media.addEventListener("change", apply);
+    const apply = () => {
+      document.documentElement.dataset.theme = theme === "system" ? (media.matches ? "dark" : "light") : theme;
+    };
+    apply();
+    media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
   }, [theme, ready]);
-  return <div className="theme-switch" role="group" aria-label="Tema tampilan">
-    {([{ id: "light", label: "Terang", icon: Sun }, { id: "dark", label: "Gelap", icon: Moon }, { id: "system", label: "Sistem", icon: Monitor }] as const).map(({ id, label, icon: Icon }) =>
-      <button key={id} title={`Tema ${label.toLowerCase()}`} aria-label={`Tema ${label.toLowerCase()}`} aria-pressed={theme === id} onClick={() => { localStorage.setItem("adexe-theme", id); setTheme(id); }}><Icon size={15} /><span>{label}</span></button>)}
-  </div>;
+  return (
+    <div className="theme-switch" role="group" aria-label="Tema tampilan">
+      {(
+        [
+          { id: "light", label: "Terang", icon: Sun },
+          { id: "dark", label: "Gelap", icon: Moon },
+          { id: "system", label: "Sistem", icon: Monitor },
+        ] as const
+      ).map(({ id, label, icon: Icon }) => (
+        <button
+          key={id}
+          title={`Tema ${label.toLowerCase()}`}
+          aria-label={`Tema ${label.toLowerCase()}`}
+          aria-pressed={theme === id}
+          onClick={() => {
+            localStorage.setItem("adexe-theme", id);
+            setTheme(id);
+          }}
+        >
+          <Icon size={15} />
+          <span>{label}</span>
+        </button>
+      ))}
+    </div>
+  );
 }

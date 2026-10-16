@@ -20,6 +20,10 @@ cd C:\Users\Procyon\Documents\Adexe\adexe-lora-trainer
 
 The rule permits only LocalSubnet on LAN interfaces. No router port forwarding is required.
 
+Linux / WSL: `./run.sh` (local) or `./run-lan.sh` (LAN). Development: `./dev.sh` → http://localhost:3000.
+
+After `git pull`, rebuild the frontend once: `set REBUILD=1 && run.bat` (Windows) or `REBUILD=1 ./run.sh`.
+
 ## Features
 - Light, dark, and system themes; compact cards, workflow diagrams and expandable explanations.
 - SQLite history: experiments, session parameter/config snapshots, dataset versions, loss and observed LR, evaluations and events.
@@ -27,6 +31,7 @@ The rule permits only LocalSubnet on LAN interfaces. No router port forwarding i
 - Reports per training session: HTML with embedded sample previews, Markdown, JSON, CSV. Download from **Report & LR**.
 - History ZIP export/import plus path remapping to move to another PC. Large assets and credentials are excluded.
 - Qwen-Image 2.1, Anima Base, FLUX.2 Klein Base 4B and Z-Image Base LoRA presets.
+- **Proyek manhwa** follows the most recently imported AI Toolkit config (or the `project_config_path` setting).
 - Optional sketch/reference conditioning for Qwen/Klein, original config import, same-name pair validation before starting.
 - Model Lab: comparisons, two-stage versus direct sketch→final guides, LoRA/full fine-tuning/from-scratch/MoE explanations with source links.
 

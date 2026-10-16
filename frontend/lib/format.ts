@@ -11,7 +11,9 @@ export function fmtTime(ts: number | null | undefined): string {
 }
 export function fmtDur(sec: number | null | undefined): string {
   if (!sec || sec < 0) return "–";
-  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.floor(sec % 60);
+  const h = Math.floor(sec / 3600),
+    m = Math.floor((sec % 3600) / 60),
+    s = Math.floor(sec % 60);
   return h ? `${h}j ${m}m` : m ? `${m}m ${s}d` : `${s}d`;
 }
 export function fmtValue(v: unknown): string {
@@ -20,4 +22,13 @@ export function fmtValue(v: unknown): string {
   if (typeof v === "number") return fmtNum(v);
   return v === undefined || v === null || v === "" ? "–" : String(v);
 }
-export const modelLabel = (m: string) => (m === "anima" ? "Anima" : m === "qwen_image_2" ? "Qwen 2.1" : m === "flux2_klein_4b" ? "FLUX.2 Klein 4B" : m === "zimage" ? "Z-Image Base" : m);
+export const modelLabel = (m: string) =>
+  m === "anima"
+    ? "Anima"
+    : m === "qwen_image_2"
+      ? "Qwen 2.1"
+      : m === "flux2_klein_4b"
+        ? "FLUX.2 Klein 4B"
+        : m === "zimage"
+          ? "Z-Image Base"
+          : m;

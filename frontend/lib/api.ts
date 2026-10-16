@@ -1,5 +1,5 @@
 // Same-origin in production (FastAPI serves the static export).
-// During `next dev` (port 3000) talk to the API directly on :7860.
+// During `next dev` (port 3000) talk to the API directly on :7862.
 export function apiBase(): string {
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
   if (typeof window === "undefined") return "";
