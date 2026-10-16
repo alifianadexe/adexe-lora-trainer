@@ -13,7 +13,9 @@ import uuid
 from pathlib import Path
 
 from . import builders, datasets
-from .config import JOBS_DIR, OUTPUTS_DIR, backend_status, load_settings
+from .config import DATA_DIR, JOBS_DIR, OUTPUTS_DIR, backend_status, load_settings
+from . import workspace
+from . import database, tracking
 
 STEP_RE = re.compile(r"(\d+)/(\d+)\s*\[")
 LOSS_RE = re.compile(r"(?:avr_loss|loss)\s*[:=]\s*(nan|inf|[0-9.]+(?:e[-+]?\d+)?)", re.I)
@@ -40,6 +42,16 @@ def _now():
 
 class JobManager:
     def __init__(self):
+        self._lease=(DATA_DIR/'.training-worker.lock').open('a+b')
+        self._lease.seek(0);self._lease.write(b'0');self._lease.flush();self._lease.seek(0)
+        try:
+            if os.name=='nt':
+                import msvcrt
+                msvcrt.locking(self._lease.fileno(),msvcrt.LK_NBLCK,1)
+            else:
+                import fcntl
+                fcntl.flock(self._lease,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except OSError as e:raise RuntimeError('Studio lain memakai database ini. Gunakan satu instance per workspace.') from e
         self._lock = threading.RLock()
         self._proc = None
         self._running_id = None
@@ -55,35 +67,26 @@ class JobManager:
         return JOBS_DIR / job_id
 
     def get(self, job_id: str) -> dict:
-        p = self._dir(job_id) / "job.json"
-        if not p.exists():
-            raise FileNotFoundError(job_id)
-        return json.loads(p.read_text(encoding="utf-8"))
+        self._dir(job_id)
+        return database.get_job(job_id)
 
     def _save(self, job: dict):
         d = self._dir(job["id"])
         d.mkdir(parents=True, exist_ok=True)
-        tmp = d / "job.json.tmp"
-        tmp.write_text(json.dumps(job, indent=2), encoding="utf-8")
-        os.replace(tmp, d / "job.json")
+        database.put_job(job)
 
     def list(self) -> list:
-        out = []
-        for d in JOBS_DIR.iterdir():
-            f = d / "job.json"
-            if f.exists():
-                try:
-                    out.append(json.loads(f.read_text(encoding="utf-8")))
-                except Exception:
-                    pass
-        return sorted(out, key=lambda j: -j.get("created", 0))
+        return database.list_jobs()
 
     def _recover(self):
+        with database.connect() as c:c.execute("UPDATE runs SET status='interrupted',finished=? WHERE status='running'",(_now(),))
         for j in self.list():
-            if j["status"] == "running":
+            if j["status"] in ("running","queued"):
                 j["status"] = "stopped"
                 j["error"] = "Server dimatikan saat training berjalan."
                 self._save(j)
+            elif j['status']=='stopped' and j.get('progress',{}).get('phase'):
+                j['progress']['phase']=None;j['progress']['eta']=None;self._save(j)
 
     # ------------------------------------------------------------------ CRUD
     def create(self, data: dict) -> dict:
@@ -111,6 +114,7 @@ class JobManager:
             "progress": {"step": 0, "total": int(data["params"].get("steps") or 0), "loss": None, "eta": None},
             "error": None,
             "error_hint": None,
+            'training_type':'lora',
         }
         self._render(job)
         self._save(job)
@@ -121,6 +125,8 @@ class JobManager:
             job = self.get(job_id)
             if job["status"] in ("running", "queued"):
                 raise ValueError("Job sedang berjalan / antri")
+            if job.get("imported_config") and any(k in data for k in ("params", "backend", "dataset", "trigger_word")):
+                raise ValueError("Config impor dipertahankan utuh. Ubah config sumber lalu impor dengan nama eksperimen baru.")
             for k in ("params", "trigger_word", "notes", "backend", "dataset"):
                 if k in data:
                     job[k] = data[k]
@@ -147,10 +153,64 @@ class JobManager:
             if job["status"] in ("running", "queued"):
                 raise ValueError("Hentikan job dulu")
             shutil.rmtree(self._dir(job_id), ignore_errors=True)
-            if delete_outputs:
+            database.delete_job(job_id)
+            if delete_outputs and not job.get("imported_config"):
                 shutil.rmtree(OUTPUTS_DIR / job["name"], ignore_errors=True)
 
+    def import_config(self, path: str) -> dict:
+        import copy
+        source, cfg, proc = workspace.read_config(path)
+        with self._lock:
+            for existing in self.list():
+                if existing["name"] == cfg["config"]["name"]:
+                    if existing.get("imported_config"):
+                        return existing
+                    raise ValueError("Nama eksperimen sudah dipakai.")
+            ds = proc["datasets"][0]; target = Path(ds["folder_path"])
+            if not target.is_dir(): raise ValueError("Folder target dataset tidak ditemukan.")
+            for key in ("control_path_1", "control_path_2"):
+                if ds.get(key) and not Path(ds[key]).is_dir(): raise ValueError("Folder control tidak ditemukan: " + key)
+            name = cfg["config"]["name"]
+            dataset_name = name[:55] + "_linked"
+            if not (datasets.DATASETS_DIR / dataset_name).exists():
+                datasets.create(dataset_name, caption_style="natural", linked_path=str(target))
+                datasets.update_meta(dataset_name, {"notes": "Target dari config impor. Config training mempertahankan semua control dan referensi."})
+            output = Path(proc["training_folder"]) / name
+            checkpoint = workspace.latest_checkpoint(output)
+            train = proc["train"]; network = proc.get("network") or {}; sample = proc.get("sample", {})
+            params = {"rank": network.get("linear", 0), "alpha": network.get("linear_alpha", 0), "lr": train.get("lr", 1e-4),
+                      "steps": train["steps"], "batch_size": train.get("batch_size", 1), "grad_accum": train.get("gradient_accumulation", 1),
+                      "optimizer": train.get("optimizer", "adamw8bit"), "lr_scheduler": train.get("lr_scheduler", "constant"),
+                      "resolutions": ds.get("resolution", [1024]), "sample_every": sample.get("sample_every", 500),
+                      "sample_prompts": [s.get("prompt", "") for s in sample.get("samples", [])],
+                      "sample_width": sample.get("width", 768), "sample_height": sample.get("height", 1344),
+                      "cache_text_embeddings": train.get("cache_text_embeddings", False), "gradient_checkpointing": train.get("gradient_checkpointing", True),
+                      "quantize": proc.get("model", {}).get("quantize", True)}
+            params.update({"layer_offloading": proc.get("model", {}).get("layer_offloading", False),
+                           "layer_offloading_percent": proc.get("model", {}).get("layer_offloading_transformer_percent", 0),
+                           "caption_dropout": ds.get("caption_dropout_rate", 0), "shuffle_tokens": ds.get("shuffle_tokens", False),
+                           "flip_x": ds.get("flip_x", False), "save_every": proc.get("save", {}).get("save_every", 250)})
+            step = checkpoint["step"]
+            job = {"id": uuid.uuid4().hex[:12], "name": name, "model": proc["model"]["arch"], "backend": "ai-toolkit",
+                   "dataset": dataset_name, "trigger_word": "", "goal": "style", "vram": 32, "params": params,
+                   "notes": "Config asli diimpor utuh. Progress awal berasal dari checkpoint, bukan log loss. Mulai training hanya saat tombol Lanjutkan ditekan.",
+                   "status": "stopped" if step < train["steps"] else "completed", "created": source.stat().st_mtime,
+                   "started": None, "finished": None, "progress": {"step": step, "total": train["steps"], "loss": None, "eta": None},
+                   "error": None, "error_hint": None, "imported_config": copy.deepcopy(cfg), "source_config": str(source),
+                   "output_root": str(output.resolve()),'training_type':'lora' if network else 'full_finetune'}
+            self._render(job); self._save(job)
+            return job
+
     def _render(self, job: dict) -> dict:
+        if job.get("imported_config"):
+            import yaml
+            d = self._dir(job["id"]); d.mkdir(parents=True, exist_ok=True)
+            text = yaml.safe_dump(job["imported_config"], sort_keys=False, allow_unicode=True)
+            (d / "config.yaml").write_text(text, encoding="utf-8")
+            cmd = builders.ai_toolkit_command(job, d / "config.yaml")
+            r = {"files": {"config.yaml": text}, "command": cmd, "command_text": builders.command_preview(cmd)}
+            job["command_text"] = r["command_text"]; job["config_files"] = ["config.yaml"]
+            return r
         ds_path = str(datasets.dataset_dir(job["dataset"]))
         r = builders.render(job, ds_path, self._dir(job["id"]))
         d = self._dir(job["id"])
@@ -164,6 +224,8 @@ class JobManager:
     def files(self, job_id: str) -> dict:
         job = self.get(job_id)
         d = self._dir(job_id)
+        if any(not (d/f).exists() for f in job.get('config_files',[])):
+            self._render(job)
         return {f: (d / f).read_text(encoding="utf-8") for f in job.get("config_files", []) if (d / f).exists()}
 
     # ------------------------------------------------------------------ control
@@ -180,6 +242,21 @@ class JobManager:
                 missing = [k for k in ("anima_dit_path", "anima_qwen3_path", "anima_vae_path") if not s.get(k)]
                 if missing:
                     raise ValueError("Path model Anima untuk sd-scripts belum diisi di Pengaturan: " + ", ".join(missing))
+            if job['backend']=='ai-toolkit':
+                if job.get('imported_config'):data_configs=job['imported_config']['config']['process'][0]['datasets']
+                else:data_configs=[{'folder_path':str(datasets.dataset_dir(job['dataset'])),**{k:job['params'].get(k) for k in ('control_path_1','control_path_2')}}]
+                for dc in data_configs:
+                    target=Path(dc['folder_path'])
+                    target_ids={p.stem for p in datasets.images_in(target)}
+                    if not target_ids:raise ValueError('Dataset target kosong atau lokasinya belum tersedia.')
+                    for key in ('control_path_1','control_path_2'):
+                        if not dc.get(key):continue
+                        ctrl=Path(dc[key]);control_ids={p.stem for p in datasets.images_in(ctrl)}
+                        if target_ids!=control_ids:raise ValueError(f'{key}: nama file control harus tepat sama dengan target ({len(target_ids)} pasangan).')
+                if not job.get('imported_config') and job['params'].get('control_path_1'):
+                    p=job['params']
+                    if not p.get('sample_control_1') or not Path(p['sample_control_1']).is_file():raise ValueError('Isi file sketch untuk sample saat memakai conditioning.')
+                    if p.get('control_path_2') and (not p.get('sample_control_2') or not Path(p['sample_control_2']).is_file()):raise ValueError('Isi file referensi karakter untuk sample.')
             self._render(job)  # settings may have changed since creation
             job["status"] = "queued"
             job["error"] = None
@@ -219,6 +296,7 @@ class JobManager:
                 job["status"] = "failed"
                 job["error"] = str(e)
                 job["finished"] = _now()
+                if job.get('active_run_id'):database.finish_run(job['active_run_id'],'failed')
                 self._save(job)
 
     def _run(self, job: dict):
@@ -228,10 +306,14 @@ class JobManager:
         r = self._render(job)
         cmd = r["command"]
         d = self._dir(job["id"])
+        run_id=uuid.uuid4().hex
+        provenance=tracking.snapshot(job,r['files'].get('config.yaml',r['files']))
+        database.start_run(job['id'],run_id,provenance)
+        job['active_run_id']=run_id
+        self._save(job)
+        database.event(job['id'],run_id,'started',{'params':job['params']})
         log_path = d / "log.txt"
         metrics_path = d / "metrics.jsonl"
-        if metrics_path.exists():
-            metrics_path.unlink()
         env = dict(os.environ)
         env.update(cmd["env"])
         env["PYTHONUNBUFFERED"] = "1"
@@ -298,9 +380,12 @@ class JobManager:
                                 last_step = step
                                 with open(metrics_path, "a", encoding="utf-8") as mf:
                                     finite = loss_val is not None and math.isfinite(loss_val)
-                                    mf.write(json.dumps({"step": step, "loss": loss_val if finite else None, "nan": not finite,
+                                    metric={"step": step, "loss": loss_val if finite else None, "nan": not finite,
                                                          "lr": float(lrm.group(1)) if lrm else None,
-                                                         "t": round(_now(), 1)}) + "\n")
+                                                         "group_lrs":{k:float(v) for k,v in re.findall(r'\blr[/_:]([A-Za-z0-9_]+)\s*[:=]\s*([0-9.]+(?:e[-+]?\d+)?)',line,re.I)},
+                                                         "run_id":run_id,"t": round(_now(), 1)}
+                                    mf.write(json.dumps(metric) + "\n")
+                                    database.add_metric(job['id'],run_id,metric)
                     if "Generating" in line and "sample" in line.lower():
                         prog["phase"] = "sampling"
                     elif "Saving" in line or "saving" in line:
@@ -337,8 +422,15 @@ class JobManager:
                         j["error_hint"] = hint
                         break
             self._save(j)
+            database.finish_run(run_id,j['status'])
+            database.event(j['id'],run_id,'finished',{'status':j['status'],'exit_code':rc})
             self._proc = None
             self._running_id = None
+        try:
+            from .reports import save_artifacts
+            save_artifacts(self,j['id'],run_id)
+        except Exception as error:
+            database.event(j['id'],run_id,'report_failed',{'error':str(error)})
 
     # ------------------------------------------------------------------ outputs
     def log(self, job_id: str, offset: int = 0, max_bytes: int = 200_000) -> dict:
@@ -359,20 +451,12 @@ class JobManager:
         return {"text": text, "offset": size}
 
     def metrics(self, job_id: str) -> list:
-        p = self._dir(job_id) / "metrics.jsonl"
-        if not p.exists():
-            return []
-        out = []
-        for line in p.read_text(encoding="utf-8").splitlines():
-            try:
-                out.append(json.loads(line))
-            except Exception:
-                pass
-        return out
+        self.get(job_id)
+        return database.metrics(job_id)
 
     def outputs(self, job_id: str) -> dict:
         job = self.get(job_id)
-        root = OUTPUTS_DIR / job["name"]
+        root = Path(job["output_root"]) if job.get("imported_config") else OUTPUTS_DIR / job["name"]
         samples, ckpts = [], []
         if root.exists():
             for sub in ("samples", "sample"):
@@ -389,7 +473,7 @@ class JobManager:
 
     def output_file(self, job_id: str, rel: str) -> Path:
         job = self.get(job_id)
-        root = (OUTPUTS_DIR / job["name"]).resolve()
+        root = (Path(job["output_root"]) if job.get("imported_config") else OUTPUTS_DIR / job["name"]).resolve()
         p = (root / rel).resolve()
         if root not in p.parents:
             raise ValueError("path tidak valid")

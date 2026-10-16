@@ -8,7 +8,7 @@ import type { Backend, Status } from "@/lib/types";
 
 type F = [key: string, label: string, hint: string, type?: string];
 const SECTIONS: { title: string; icon: ReactNode; backend?: string; fields: F[] }[] = [
-  { title: "ai-toolkit · Qwen 2.1 & Anima", icon: <Server className="size-4" />, backend: "ai-toolkit", fields: [
+  { title: "AI Toolkit · model gambar", icon: <Server className="size-4" />, backend: "ai-toolkit", fields: [
     ["ai_toolkit_path", "Folder ai-toolkit", "Hasil git clone github.com/ostris/ai-toolkit (berisi run.py)."],
     ["ai_toolkit_python", "Python ai-toolkit", "Kosongkan untuk deteksi otomatis venv/ atau .venv/ di folder itu."],
   ] },
@@ -39,7 +39,7 @@ export default function Settings() {
   };
   return (
     <div>
-      <PageHeader title="Pengaturan" subtitle="Lokasi backend training, model, dan layanan auto-caption." actions={<button className="btn btn-primary" onClick={save}><Save className="size-4" />Simpan</button>} />
+      <PageHeader title="Pengaturan" subtitle="Lokasi backend training, model, dan layanan auto-caption. Backup dan pemetaan PC tersedia di Data & LAN." actions={<button className="btn btn-primary" onClick={save}><Save className="size-4" />Simpan</button>} />
       <div className="grid gap-6 lg:grid-cols-2">
         {SECTIONS.map((s) => {
           const b: Backend | undefined = s.backend ? st?.backends[s.backend] : undefined;

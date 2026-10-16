@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start LoRA Studio at http://127.0.0.1:7860 (API + built Next.js frontend on one port).
+# Start LoRA Studio at http://127.0.0.1:7862 (API + built Next.js frontend on one port).
 #   REBUILD=1 ./run.sh   -> force rebuilding the frontend
 set -e
 cd "$(dirname "$0")"
@@ -17,6 +17,6 @@ if [ ! -f frontend/out/index.html ] || [ "${REBUILD:-0}" = "1" ]; then
 fi
 
 HOST="${HOST:-127.0.0.1}"
-PORT="${PORT:-7860}"
+PORT="${PORT:-7862}"
 echo "LoRA Studio -> http://${HOST}:${PORT}"
 exec .venv/bin/python -m uvicorn app.main:app --host "$HOST" --port "$PORT"

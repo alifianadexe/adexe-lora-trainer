@@ -12,11 +12,22 @@ from pydantic import BaseModel, Field
 from . import builders, captioner, datasets, insights, presets, system
 from .config import WEB_DIR, backend_status, load_settings, save_settings
 from .jobs import JobManager
+from . import workspace
+from . import access,data_routes
+from . import model_catalog
 
 app = FastAPI(title="Adexe LoRA Studio")
 # the Next.js dev server runs on another port; this is a local single-user tool
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000","http://127.0.0.1:3000"], allow_methods=["*"], allow_headers=["*"],allow_credentials=True)
+app.middleware('http')(access.guard)
 jobs = JobManager()
+app.include_router(data_routes.router(jobs))
+
+@app.get('/api/access/info')
+def access_info(request:Request):return access.info(request)
+
+@app.post('/api/access/login')
+def access_login(request:Request,data:dict):return access.login(request,data.get('code',''))
 
 
 @app.exception_handler(ValueError)
@@ -59,6 +70,9 @@ def put_settings(data: dict):
 @app.get("/api/catalog")
 def catalog():
     return presets.public_catalog()
+
+@app.get('/api/model-lab')
+def model_lab():return model_catalog.catalog()
 
 
 class RecommendReq(BaseModel):
@@ -245,6 +259,20 @@ def autocaption_cancel(name: str):
 
 
 # --------------------------------------------------------------------------- jobs
+
+@app.get("/api/workspace")
+def workspace_info():
+    info = workspace.project_summary()
+    info["job_id"] = next((j["id"] for j in jobs.list() if j["name"] == info.get("name")), None)
+    return info
+
+@app.get("/api/workspace/sample/{name}")
+def workspace_sample(name: str):
+    return FileResponse(workspace.project_sample(name))
+
+@app.post("/api/jobs/import-config")
+def import_job_config(data: dict):
+    return jobs.import_config(data.get("path", ""))
 
 
 @app.get("/api/jobs")

@@ -12,16 +12,19 @@ export default function JobsPage() {
   const { data, loading } = useApi<Job[]>("/api/jobs", 3000);
   const [sel, setSel] = useState<string[]>([]);
   const router = useRouter();
+  const [query,setQuery]=useState(""); const [model,setModel]=useState("");
+  const filtered=data?.filter(j=>(!model||j.model===model)&&`${j.name} ${j.dataset} ${j.params.lr} ${j.params.rank} ${j.status}`.toLowerCase().includes(query.toLowerCase()));
   const toggle = (id: string) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id].slice(-6)));
   return (
     <div>
-      <PageHeader title="Jobs & Monitor" subtitle="Semua eksperimenmu. Centang 2+ run untuk membandingkan parameter, kurva loss, dan hasil evaluasinya."
+      <PageHeader title="Training & evaluasi" subtitle="Semua eksperimenmu. Centang 2+ run untuk membandingkan parameter, kurva loss, dan hasil evaluasinya."
         actions={<>
           <button className="btn" disabled={sel.length < 2} onClick={() => router.push(`/compare/?ids=${sel.join(",")}`)}><GitCompareArrows className="size-4" />Bandingkan ({sel.length})</button>
           <Link href="/train/" className="btn btn-primary"><Plus className="size-4" />Training baru</Link>
         </>} />
+      <div className="mb-5 flex flex-wrap gap-3"><input className="input max-w-md" aria-label="Cari eksperimen" placeholder="Cari nama, dataset, LR, rank, atau status…" value={query} onChange={e=>setQuery(e.target.value)}/><select aria-label="Filter model" className="input max-w-xs" value={model} onChange={e=>setModel(e.target.value)}><option value="">Semua model</option>{[...new Set(data?.map(j=>j.model)||[])].map(m=><option key={m} value={m}>{modelLabel(m)}</option>)}</select></div>
       {loading ? <Loading /> : !data?.length ? (
-        <Card><Empty icon={<LineChart className="size-5" />} title="Belum ada job">Buat training pertamamu dari halaman Training Baru.</Empty></Card>
+        <Card><Empty icon={<LineChart className="size-5" />} title="Belum ada eksperimen terhubung">Buat eksperimen baru atau <Link href="/workspace/" className="text-brand-400">impor config training yang sudah ada</Link>.</Empty></Card>
       ) : (
         <Card className="overflow-x-auto p-0">
           <table className="w-full min-w-[900px] text-left text-[13.5px]">
@@ -29,7 +32,7 @@ export default function JobsPage() {
               <tr>{["", "Run", "Model", "Rank", "LR", "Steps", "Progress", "Evaluasi", "Status", "Dibuat"].map((h) => <th key={h} className="px-4 py-3 font-medium">{h}</th>)}</tr>
             </thead>
             <tbody>
-              {data.map((j) => {
+              {filtered?.map((j) => {
                 const evs = Object.keys(j.evaluations || {}).length;
                 return (
                   <tr key={j.id} className={cx("cursor-pointer border-b border-white/[0.04] transition hover:bg-white/[0.03]", sel.includes(j.id) && "bg-brand-500/[0.06]")}

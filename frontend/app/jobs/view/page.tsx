@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { RunReport } from "@/components/run-report";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Activity, ArrowRight, Download, FileCode2, FlaskConical, Images, Play, Repeat2, ScrollText, SlidersHorizontal, Square, Star, Stethoscope, Trash2,
@@ -13,7 +14,7 @@ import { fmtDur, fmtNum, fmtTime, fmtValue } from "@/lib/format";
 import { useApi, useCatalog } from "@/lib/hooks";
 import type { Evaluation, Insights, Job, Outputs } from "@/lib/types";
 
-type Tab = "diagnosa" | "preview" | "evaluasi" | "ckpt" | "log" | "params" | "config";
+type Tab = "report" | "diagnosa" | "preview" | "evaluasi" | "ckpt" | "log" | "params" | "config";
 
 function JobView() {
   const id = useSearchParams().get("id") || "";
@@ -53,7 +54,7 @@ function JobView() {
         actions={<>
           {live ? <button className="btn btn-danger" onClick={stop}><Square className="size-4" />Hentikan</button>
             : <button className="btn btn-primary" onClick={start}><Play className="size-4" />{job.status === "draft" ? "Mulai" : "Jalankan lagi / lanjutkan"}</button>}
-          <Link href={`/train/?from=${job.id}`} className="btn"><Repeat2 className="size-4" />Iterasi</Link>
+          {!job.imported_config && <Link href={`/train/?from=${job.id}`} className="btn"><Repeat2 className="size-4" />Iterasi</Link>}
           {!live && <button className="btn btn-danger" onClick={del}><Trash2 className="size-4" /></button>}
         </>} />
 
@@ -61,12 +62,12 @@ function JobView() {
 
       <Card className="mb-6">
         <div className="flex flex-wrap items-center gap-6">
-          {ins && <HealthRing value={ins.health} />}
+          {ins?.health != null && <HealthRing value={ins.health} />}
           <div className="grid flex-1 grid-cols-2 gap-5 md:grid-cols-5">
             <Stat label="step" value={<span>{p.step || 0}<span className="text-base text-ink-400">/{p.total}</span></span>} />
             <Stat label="loss terakhir" value={fmtNum(p.loss)} />
             <Stat label="loss rata-rata (EMA)" value={fmtNum(ins?.summary.last_ema)} hint={ins?.summary.change_pct != null ? `${ins.summary.change_pct > 0 ? "+" : ""}${ins.summary.change_pct.toFixed(1)}% dari awal` : undefined} />
-            <Stat label={job.status === "running" ? `sisa waktu${phase ? ` · ${phase}` : ""}` : "durasi"} value={job.status === "running" ? p.eta || "–" : fmtDur(elapsed)} />
+            <Stat label={job.status === "running" ? `sisa waktu${phase ? ` · ${phase}` : ""}` : "durasi"} value={job.status === "running" ? p.eta || "–" : job.imported_config && !job.started ? "—" : fmtDur(elapsed)} />
             <Stat label="LR efektif" value={fmtNum(ins?.effective_lr)} />
           </div>
         </div>
@@ -79,7 +80,9 @@ function JobView() {
         )}
       </Card>
 
+      {job.imported_config && <div className="mb-5"><Callout title="Config training asli terhubung">Sketch, referensi, dan lokasi checkpoint dipertahankan. Log loss lama tidak tersedia; kurva akan terisi setelah training dilanjutkan melalui studio. Menghapus job di studio tidak menghapus output asli.</Callout></div>}
       <Tabs<Tab> value={tab} onChange={setTab} tabs={[
+        { id: "report", label: <><FileCode2 className="size-4" />Report & LR</> },
         { id: "diagnosa", label: <><Stethoscope className="size-4" />Diagnosa</>, badge: ins && ins.insights.filter((i) => i.level === "bad" || i.level === "warn").length > 0 ? <span className="rounded-full bg-amber-500/20 px-1.5 text-[11px] text-amber-200">{ins.insights.filter((i) => i.level === "bad" || i.level === "warn").length}</span> : undefined },
         { id: "preview", label: <><Images className="size-4" />Preview</>, badge: out?.samples.length ? <span className="text-[11px] text-ink-400">{out.samples.length}</span> : undefined },
         { id: "evaluasi", label: <><FlaskConical className="size-4" />Evaluasi</>, badge: evalCount ? <span className="text-[11px] text-emerald-300">{evalCount}</span> : undefined },
@@ -89,6 +92,7 @@ function JobView() {
         { id: "config", label: <><FileCode2 className="size-4" />Config</> },
       ]} />
 
+      {tab === "report" && <RunReport base={base} />}
       {tab === "diagnosa" && <Diagnosa ins={ins} job={job} />}
       {tab === "preview" && <Preview job={job} out={out} base={base} />}
       {tab === "evaluasi" && <Evaluate job={job} out={out} base={base} ins={ins} onSaved={() => { reload(); reloadIns(); }} />}
@@ -129,7 +133,7 @@ function Diagnosa({ ins, job }: { ins: Insights | null; job: Job }) {
           <CardTitle>Cara membaca loss pada LoRA diffusion</CardTitle>
           <ul className="space-y-2 text-[13.5px] leading-relaxed text-ink-300">
             <li>• <b className="text-ink-100">Loss tidak turun drastis itu normal.</b> Model dasar sudah pintar; LoRA hanya mempelajari detail kecil yang hampir tidak terlihat di angka loss.</li>
-            <li>• <b className="text-ink-100">Zig-zag besar itu normal.</b> Setiap step memakai tingkat noise acak — step dengan noise tinggi selalu punya loss berbeda.</li>
+            <li>• <b className="text-ink-100">Zig-zag besar itu normal.</b> Setiap step memakai tingkat noise acak — tingkat noise memengaruhi nilai loss.</li>
             <li>• <b className="text-ink-100">Yang berbahaya:</b> tren rata-rata yang <i>naik</i>, nilai NaN, atau lonjakan yang makin sering.</li>
             <li>• <b className="text-ink-100">Loss terendah ≠ checkpoint terbaik.</b> Keputusan akhir selalu dari preview dan evaluasi.</li>
           </ul>

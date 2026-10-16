@@ -8,10 +8,12 @@ import { cx } from "./ui";
 
 const NAV = [
   { group: "Studio", items: [
-    { href: "/", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/", label: "Ringkasan", icon: LayoutDashboard },
+    { href: "/models/", label: "Model Lab", icon: FlaskConical },
+    { href: "/workspace/", label: "Proyek manhwa", icon: Sparkles },
     { href: "/datasets/", label: "Dataset", icon: Images },
-    { href: "/train/", label: "Training Baru", icon: Sparkles },
-    { href: "/jobs/", label: "Jobs & Monitor", icon: LineChart },
+    { href: "/train/", label: "Eksperimen baru", icon: Sparkles },
+    { href: "/jobs/", label: "Training & evaluasi", icon: LineChart },
     { href: "/compare/", label: "Bandingkan", icon: GitCompareArrows },
   ] },
   { group: "Belajar", items: [
@@ -20,7 +22,7 @@ const NAV = [
     { href: "/learn/mistakes/", label: "Kesalahan Umum", icon: TriangleAlert },
     { href: "/learn/lab/", label: "Lab Interaktif", icon: FlaskConical },
   ] },
-  { group: "Sistem", items: [{ href: "/settings/", label: "Pengaturan", icon: Settings }] },
+  { group: "Sistem", items: [{ href: "/data/", label: "Data & LAN", icon: Cpu }, { href: "/settings/", label: "Pengaturan", icon: Settings }] },
 ];
 
 export function Sidebar() {
@@ -37,9 +39,9 @@ export function Sidebar() {
   return (
     <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col border-r border-white/[0.06] bg-ink-900/60 backdrop-blur-xl lg:flex">
       <Link href="/" className="flex items-center gap-3 px-5 pb-4 pt-5">
-        <div className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-brand-500 via-fuchsia-500 to-cyan-400 font-bold text-white shadow-[0_0_24px_-4px_rgb(139_92_246/0.8)]">L</div>
+        <div className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-brand-600 to-brand-500 brandmark font-bold text-ink-100 shadow-[0_0_24px_-4px_rgb(139_92_246/0.8)]">A</div>
         <div>
-          <div className="font-semibold leading-tight">LoRA Studio</div>
+          <div className="font-semibold leading-tight">Adexe Studio</div>
           <div className="text-[11px] text-ink-400">train · pahami · ulangi</div>
         </div>
       </Link>
@@ -50,7 +52,7 @@ export function Sidebar() {
             {g.items.map(({ href, label, icon: Icon }) => (
               <Link key={href} href={href}
                 className={cx("group flex items-center gap-3 rounded-xl px-3 py-2 text-[13.5px] transition",
-                  active(href) ? "bg-gradient-to-r from-brand-500/20 to-transparent text-white" : "text-ink-300 hover:bg-white/[0.04] hover:text-white")}>
+                  active(href) ? "bg-gradient-to-r from-brand-500/20 to-transparent text-ink-100" : "text-ink-300 hover:bg-white/[0.04] hover:text-ink-100")}>
                 <Icon className={cx("size-4", active(href) ? "text-brand-300" : "text-ink-400 group-hover:text-ink-100")} />
                 {label}
                 {href === "/jobs/" && running && <span className="ml-auto size-2 rounded-full bg-sky-400 animate-pulse-soft" />}
@@ -80,12 +82,12 @@ export function Sidebar() {
 
 export function MobileNav() {
   const path = usePathname() || "/";
-  const items = NAV.flatMap((g) => g.items).filter((i) => ["/", "/datasets/", "/train/", "/jobs/", "/learn/", "/settings/"].includes(i.href));
+  const items = NAV.flatMap((g) => g.items).filter((i) => ["/", "/workspace/", "/datasets/", "/train/", "/jobs/", "/learn/", "/models/", "/data/", "/settings/"].includes(i.href));
   return (
     <nav className="sticky top-0 z-30 flex gap-1 overflow-x-auto border-b border-white/[0.06] bg-ink-900/80 px-3 py-2 backdrop-blur-xl lg:hidden">
       {items.map(({ href, label, icon: Icon }) => (
         <Link key={href} href={href} className={cx("flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs",
-          (href === "/" ? path === "/" : path.startsWith(href)) ? "bg-brand-500/20 text-white" : "text-ink-400")}>
+          (href === "/" ? path === "/" : path.startsWith(href)) ? "bg-brand-500/20 text-ink-100" : "text-ink-400")}>
           <Icon className="size-3.5" />{label}
         </Link>
       ))}

@@ -5,6 +5,8 @@ import { ParamInfoProvider } from "@/components/param-info";
 import { MobileNav, Sidebar } from "@/components/sidebar";
 import { UIProvider } from "@/components/ui";
 import "./globals.css";
+import { Topbar } from "@/components/topbar";
+import { AccessGate } from "@/components/access-gate";
 
 export const metadata: Metadata = {
   title: "LoRA Studio",
@@ -14,18 +16,22 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="id" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang="id" suppressHydrationWarning className={`${GeistSans.variable} ${GeistMono.variable}`}>
+      <head><script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem('adexe-theme')||'system';document.documentElement.dataset.theme=t==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):t}catch(e){}` }} /></head>
       <body className="font-sans antialiased">
         <UIProvider>
+          <AccessGate>
           <ParamInfoProvider>
             <div className="flex min-h-screen">
               <Sidebar />
               <div className="min-w-0 flex-1">
                 <MobileNav />
+                <Topbar />
                 <main className="mx-auto w-full max-w-[1400px] px-4 py-7 md:px-8 md:py-9">{children}</main>
               </div>
             </div>
           </ParamInfoProvider>
+          </AccessGate>
         </UIProvider>
       </body>
     </html>

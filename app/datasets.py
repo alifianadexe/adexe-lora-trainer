@@ -9,6 +9,7 @@ from pathlib import Path
 from PIL import Image, ImageOps
 
 from .config import DATASETS_DIR, THUMBS_DIR
+from . import database
 
 IMG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 NAME_RE = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
@@ -27,6 +28,8 @@ def _meta_path(d: Path) -> Path:
 
 
 def _read_meta(d: Path) -> dict:
+    stored=database.dataset_meta(d.name)
+    if stored is not None:return stored
     mp = _meta_path(d)
     if mp.exists():
         try:
@@ -37,7 +40,7 @@ def _read_meta(d: Path) -> dict:
 
 
 def _write_meta(d: Path, meta: dict):
-    _meta_path(d).write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    database.put_dataset(d.name,meta)
 
 
 def dataset_dir(name: str) -> Path:
@@ -119,6 +122,7 @@ def update_meta(name: str, data: dict) -> dict:
 
 
 def delete(name: str):
+    with database.connect() as c:c.execute('DELETE FROM datasets WHERE name=?',(_safe_name(name),))
     home = _home_dir(name)
     if home.exists():
         shutil.rmtree(home)  # linked folders are left untouched

@@ -119,7 +119,7 @@ function DatasetView() {
       onDrop={(e) => { e.preventDefault(); setDrag(false); upload(e.dataTransfer.files); }}>
       <PageHeader eyebrow={<Link href="/datasets/" className="hover:text-white">← Dataset</Link>} title={data.name}
         subtitle={<span className="font-mono text-xs">{data.path}</span>}
-        actions={<>
+        actions={<><button className="btn" onClick={async()=>{try{const v=await api.post<{signature:string}>(`${base}/snapshot`);toast(`Versi dataset tersimpan: ${v.signature.slice(0,12)}`);}catch(e){toast((e as Error).message,"bad");}}}>Snapshot dataset</button>
           <Link href={`/train/?dataset=${enc(data.name)}`} className="btn btn-primary"><Sparkles className="size-4" />Train dataset ini</Link>
           <button className="btn btn-danger" onClick={async () => {
             if (!(await confirm(data.linked ? "Hapus dataset dari studio? Folder tertaut tidak ikut terhapus." : "Hapus dataset beserta SEMUA gambarnya?"))) return;

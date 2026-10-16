@@ -38,7 +38,7 @@ MODELS = {
             "Text encoder 8B sangat besar - cache text embeddings hampir wajib di bawah 48GB VRAM. Konsekuensinya: trigger word harus tertulis langsung di caption, dan caption tidak bisa di-shuffle.",
             "Sampling preview default guidance 3.0.",
             "Opsi RGBA: aktifkan jika dataset kamu PNG transparan dan kamu ingin LoRA menghasilkan aset transparan.",
-            "Model juga bisa di-train untuk editing (pasangan control/target), tapi studio ini fokus ke text-to-image LoRA dulu.",
+            "Model juga bisa di-train untuk editing (pasangan control/target), tapi config berpasangan dapat diimpor utuh melalui halaman Proyek manhwa.",
         ],
         "sample_defaults": {"guidance": 3.0, "steps": 25, "width": 1024, "height": 1024, "neg": ""},
     },
@@ -409,6 +409,13 @@ def recommend(model: str, goal: str, vram: int, num_images: int, backend: str = 
             reasons.append("Text encoder Qwen3-VL-8B di-cache agar VRAM cukup untuk DiT. Pastikan trigger word sudah tertulis di setiap caption.")
         if vram <= 12:
             warnings.append("12GB sangat mepet untuk Qwen-Image 2.1. Layer offloading diaktifkan (butuh RAM sistem 32GB+), resolusi dibatasi 768, dan training akan lambat.")
+    elif model in ('flux2_klein_4b','zimage'):
+        p.update(rank=32,lr=1e-4,steps=2000,timestep_type='weighted',quantize=True,low_vram=vram<32,
+                 cache_text_embeddings=True,resolutions=[768,1024],caption_dropout=0.0)
+        reasons += ['Preset awal eksperimen LoRA: rank 32, LR 1e-4, 2.000 langkah; belum dibenchmark di PC ini.',
+                    'Text embeddings di-cache untuk mengurangi kebutuhan memori; caption tetap dan tidak di-shuffle.',
+                    'Gunakan checkpoint dan eval yang konsisten untuk memilih durasi; jumlah langkah ini bukan jaminan hasil.']
+        warnings.append('Model dan komponen encoder/VAE dapat memerlukan unduhan besar saat pertama dijalankan.')
     else:  # anima
         p["rank"] = 32
         p["lr"] = 2e-5
@@ -539,3 +546,8 @@ def public_catalog() -> dict:
         "mistakes": deepcopy(MISTAKES),
         "concepts": deepcopy(CONCEPTS),
     }
+
+
+# Registry extensions are shared by the wizard and research catalog.
+from .model_catalog import EXTRA_MODELS
+MODELS.update(EXTRA_MODELS)

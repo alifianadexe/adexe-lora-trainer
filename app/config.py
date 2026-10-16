@@ -7,7 +7,7 @@ import threading
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = Path(os.environ.get("LORA_STUDIO_DATA", ROOT / "data")).resolve()
+DATA_DIR = Path(os.environ.get("LORA_STUDIO_DATA", ROOT / "studio-data")).resolve()
 DATASETS_DIR = DATA_DIR / "datasets"
 JOBS_DIR = DATA_DIR / "jobs"
 OUTPUTS_DIR = DATA_DIR / "outputs"
@@ -51,12 +51,9 @@ _lock = threading.Lock()
 
 
 def load_settings() -> dict:
+    from . import database
     s = dict(DEFAULT_SETTINGS)
-    if SETTINGS_FILE.exists():
-        try:
-            s.update(json.loads(SETTINGS_FILE.read_text(encoding="utf-8")))
-        except Exception:
-            pass
+    s.update(database.settings())
     return s
 
 
@@ -66,7 +63,8 @@ def save_settings(new: dict) -> dict:
         for k, v in new.items():
             if k in DEFAULT_SETTINGS:
                 s[k] = v
-        SETTINGS_FILE.write_text(json.dumps(s, indent=2), encoding="utf-8")
+        from . import database
+        database.save_settings(s)
         return s
 
 
@@ -93,4 +91,7 @@ def backend_status() -> dict:
         p = Path(out["ai-toolkit"]["path"]) / "extensions_built_in" / "diffusion_models"
         out["ai-toolkit"]["supports_qwen_image_2"] = (p / "qwen_image_2").exists()
         out["ai-toolkit"]["supports_anima"] = (p / "anima").exists()
+        out['ai-toolkit']['model_support']={
+            'qwen_image_2':(p/'qwen_image_2').is_dir(),'anima':(p/'anima').is_dir(),
+            'flux2_klein_4b':(p/'flux2/flux2_klein_model.py').is_file(),'zimage':(p/'z_image/z_image.py').is_file()}
     return out

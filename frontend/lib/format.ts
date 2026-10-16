@@ -20,4 +20,4 @@ export function fmtValue(v: unknown): string {
   if (typeof v === "number") return fmtNum(v);
   return v === undefined || v === null || v === "" ? "–" : String(v);
 }
-export const modelLabel = (m: string) => (m === "anima" ? "Anima" : m === "qwen_image_2" ? "Qwen 2.1" : m);
+export const modelLabel = (m: string) => (m === "anima" ? "Anima" : m === "qwen_image_2" ? "Qwen 2.1" : m === "flux2_klein_4b" ? "FLUX.2 Klein 4B" : m === "zimage" ? "Z-Image Base" : m);

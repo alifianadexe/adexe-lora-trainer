@@ -57,12 +57,21 @@ export type DatasetDetail = DatasetSummary & {
 export type JobStatus = "draft" | "queued" | "running" | "completed" | "failed" | "stopped";
 export type Evaluation = { likeness?: number; flexibility?: number; quality?: number; note?: string };
 export type Job = {
+  imported_config?: Record<string, unknown>; source_config?: string; output_root?: string;
   id: string; name: string; model: string; backend: string; dataset: string; trigger_word: string;
   goal: string; vram: number; params: Params; notes: string; status: JobStatus;
   created: number; started: number | null; finished: number | null;
   progress: { step: number; total: number; loss: number | null; eta: string | null; phase?: string | null };
   error: string | null; error_hint: string | null; exit_code?: number;
   command_text?: string; config_files?: string[]; evaluations?: Record<string, Evaluation>;
+};
+
+export type Workspace = {
+  available: boolean; message?: string; name: string; config_path: string; output_root: string;
+  dataset_count: number; stage2_count: number; heldout_count: number; size: number[];
+  total_steps: number; checkpoint: { step: number; file: string | null; mtime: number | null };
+  pairs: { label: string; count: number; complete: boolean; path: string }[];
+  samples: { file: string; index: number }[]; job_id?: string | null;
 };
 export type Outputs = {
   root: string;
@@ -73,7 +82,7 @@ export type Insight = { level: Level; title: string; detail: string; action?: st
 export type Suggestion = { param: string | null; from: unknown; to: unknown; why: string };
 export type Advice = { best_step: number | null; best?: Evaluation; summary: string | null; suggestions: Suggestion[] };
 export type Insights = {
-  health: number;
+  health: number | null;
   summary: {
     n: number; first_ema?: number; last_ema?: number; min?: number; change_pct?: number; tail_trend?: number;
     noise?: number; spike_ratio?: number; nan_steps: number[];

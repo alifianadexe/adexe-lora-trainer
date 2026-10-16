@@ -91,7 +91,7 @@ export function StatusBadge({ status }: { status: JobStatus }) {
 export function Progress({ value, className }: { value: number; className?: string }) {
   return (
     <div className={cx("h-2 overflow-hidden rounded-full bg-white/[0.06]", className)}>
-      <div className="h-full rounded-full bg-gradient-to-r from-brand-500 via-fuchsia-500 to-cyan-400 transition-[width] duration-700" style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
+      <div className="h-full rounded-full bg-gradient-to-r from-brand-500 to-brand-400 transition-[width] duration-700" style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
     </div>
   );
 }
@@ -230,13 +230,13 @@ export function HealthRing({ value, size = 92 }: { value: number; size?: number 
   return (
     <div className="relative grid place-items-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="rgb(255 255 255 / 0.08)" strokeWidth="7" fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--stroke)" strokeWidth="7" fill="none" />
         <circle cx={size / 2} cy={size / 2} r={r} stroke={color} strokeWidth="7" fill="none" strokeLinecap="round"
           strokeDasharray={c} strokeDashoffset={c * (1 - value / 100)} style={{ transition: "stroke-dashoffset .8s" }} />
       </svg>
       <div className="absolute text-center">
         <div className="text-xl font-semibold tabular-nums">{value}</div>
-        <div className="-mt-0.5 text-[10px] uppercase tracking-wider text-ink-400">health</div>
+        <div className="-mt-0.5 text-[10px] uppercase tracking-wider text-ink-400">sinyal proses</div>
       </div>
     </div>
   );

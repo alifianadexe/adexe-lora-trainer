@@ -29,7 +29,7 @@ function Wizard() {
   const fromId = sp.get("from");
 
   const [step, setStep] = useState(0);
-  const [model, setModel] = useState<string | null>(null);
+  const [model, setModel] = useState<string | null>(sp.get("model"));
   const [goal, setGoal] = useState("character");
   const [dataset, setDataset] = useState(sp.get("dataset") || "");
   const [trigger, setTrigger] = useState("");
@@ -81,7 +81,7 @@ function Wizard() {
     setRec(r); setParams(structuredClone(r.params));
     if (!name) {
       const taken = new Set((await api.get<Job[]>("/api/jobs").catch(() => [])).map((j) => j.name));
-      let n = `${(dataset || "lora").toLowerCase()}_${model === "anima" ? "anima" : "qwen21"}_v1`;
+      let n = `${(dataset || "lora").toLowerCase()}_${model === "qwen_image_2" ? "qwen21" : model}_v1`;
       while (taken.has(n)) n = bumpName(n);
       setName(n);
     }
@@ -104,6 +104,7 @@ function Wizard() {
       <PageHeader title={fromId ? "Iterasi eksperimen" : "Training baru"}
         subtitle={fromId ? "Parameter disalin dari run sebelumnya. Ubah SATU hal saja supaya kamu tahu persis efeknya." : "Pilih model dan tujuan — studio menyarankan parameter beserta alasannya, lalu menganalisis setiap perubahanmu secara langsung."} />
 
+      <div className="mb-5"><Callout title="Pakai dataset sketch + referensi karakter?"><Link href="/workspace/" className="underline">Hubungkan config berpasangan dari halaman Proyek manhwa</Link>. Wizard mendukung conditioning opsional pada langkah Parameter; config impor mempertahankan pasangan sample berbeda dan seluruh pengaturan asli.</Callout></div>
       <div className="mb-7 flex flex-wrap items-center gap-2">
         {STEPS.map((s, i) => (
           <div key={s} className="flex items-center gap-2">
@@ -224,7 +225,9 @@ function Wizard() {
                 <div><div className="label">Tampilan</div><Segmented value={mode} onChange={setMode} options={[{ value: "pemula", label: "Esensial" }, { value: "lengkap", label: "Semua parameter" }]} /></div>
               </div>
             </Card>
+            <Card><CardTitle sub="Opsional. Kosongkan untuk checkpoint resmi preset. Varian lokal harus kompatibel dengan arsitektur yang dipilih.">Model dasar milikmu</CardTitle><input className="input font-mono" aria-label="Model dasar kustom" placeholder={m.hf} value={params.base_model_path || ""} onChange={e=>set("base_model_path",e.target.value)} /></Card>
             <ParamGroups cat={cat} params={params} rec={rec.params} backend={backend} model={model!} mode={mode} onChange={set} />
+            {(model === "qwen_image_2" || model === "flux2_klein_4b") && <Card><details><summary className="text-sm font-semibold">Conditioning sketch / referensi (opsional)</summary><p className="my-4 text-xs leading-6 text-ink-400">Untuk sketch → lineart atau sketch → final, dataset yang dipilih berisi target akhir. Isi folder control dengan nama file yang tepat sama. Caption menjelaskan aksi dan hasil akhir. Crop acak, flip, dan caption dropout dimatikan pada pasangan control.</p><div className="grid gap-4 md:grid-cols-2">{[["control_path_1","Folder sketch / control utama"],["control_path_2","Folder referensi karakter"],["sample_control_1","File sketch untuk sample"],["sample_control_2","File referensi untuk sample"]].map(([k,label])=><label key={k} className="text-xs text-ink-400">{label}<input className="input mt-2 font-mono" placeholder="Path absolut di komputer training" value={params[k]||""} onChange={e=>set(k,e.target.value)} /></label>)}</div><p className="mt-4 text-xs text-ink-400">Sample menggunakan dua file contoh ini untuk setiap prompt. Gunakan config impor untuk memberi pasangan sample berbeda per prompt.</p></details></Card>}
             <Card>
               <CardTitle sub="Preview dibuat dari prompt ini setiap beberapa step — inilah cara kamu 'melihat' LoRA belajar. Gunakan skenario yang TIDAK ada di dataset dan satu prompt tanpa trigger untuk mendeteksi kebocoran.">Prompt preview</CardTitle>
               <textarea className="input min-h-[130px] font-mono text-[12.5px]" value={(params.sample_prompts || []).join("\n")}

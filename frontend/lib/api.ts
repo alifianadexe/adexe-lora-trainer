@@ -3,7 +3,7 @@
 export function apiBase(): string {
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
   if (typeof window === "undefined") return "";
-  if (window.location.port === "3000") return `${window.location.protocol}//${window.location.hostname}:7860`;
+  if (window.location.port === "3000") return `${window.location.protocol}//${window.location.hostname}:7862`;
   return "";
 }
 
@@ -11,7 +11,7 @@ export const url = (path: string) => `${apiBase()}${path}`;
 export const enc = encodeURIComponent;
 
 async function req<T>(method: string, path: string, body?: unknown, form?: FormData): Promise<T> {
-  const init: RequestInit = { method, headers: {} };
+  const init: RequestInit = { method, headers: {}, credentials: "include" };
   if (form) init.body = form;
   else if (body !== undefined) {
     (init.headers as Record<string, string>)["Content-Type"] = "application/json";

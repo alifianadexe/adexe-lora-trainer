@@ -160,7 +160,7 @@ def analyze_job(job: dict, metrics: list, outputs: dict, dataset: dict) -> dict:
 
     # ---- loss signals
     if s.get("nan_steps"):
-        add("bad", "Loss menjadi NaN", f"Pertama terdeteksi di step {s['nan_steps'][0]}. Bobot sudah rusak setelah titik ini.",
+        add("bad", "Loss menjadi NaN", f"Pertama terdeteksi di step {s['nan_steps'][0]}. Loss tidak valid; kondisi bobot perlu diperiksa dari log dan checkpoint.",
             "Hentikan, turunkan LR 2×, pastikan bf16.", "nan_loss", 40)
     if s.get("n", 0) >= 30:
         if frac > 0.2 and s["change_pct"] > 15:
@@ -180,7 +180,7 @@ def analyze_job(job: dict, metrics: list, outputs: dict, dataset: dict) -> dict:
                 "Jika preview mulai rusak di sekitar lonjakan, turunkan LR.", "lr_too_high", 8)
         if frac > 0.5 and abs(s["tail_trend"]) < 0.02:
             add("info", "Kurva sudah mendatar",
-                "Di 40% terakhir rata-rata loss hampir tidak berubah. Model kemungkinan sudah menyerap sebagian besar yang bisa dipelajari; risiko berikutnya adalah overfit.",
+                "Di 40% terakhir rata-rata loss hampir tidak berubah. Kurva datar saja belum membuktikan underfit atau overfit; bandingkan hasil pada input yang sama.",
                 "Mulai bandingkan checkpoint dari titik ini.")
         if s["noise"] > 0.35:
             add("info", "Loss sangat berisik",
@@ -241,7 +241,7 @@ def analyze_job(job: dict, metrics: list, outputs: dict, dataset: dict) -> dict:
             marks.append({"step": st, "label": f"{target}× / gambar"})
     s.pop("spikes", None)
     return {
-        "health": max(0, min(100, score)),
+        "health": max(0, min(100, score)) if s.get("n", 0) else None,
         "summary": s,
         "insights": ins,
         "lr_schedule": lr_schedule(p),
@@ -265,6 +265,11 @@ def estimate_vram(model: str, params: dict) -> dict:
         base = 8.0 if params.get("quantize", True) else 15.0
         te = 0 if params.get("cache_text_embeddings") else (9.0 if params.get("quantize", True) else 17.0)
         parts = [("Transformer 7B (int8)" if params.get("quantize", True) else "Transformer 7B (bf16)", base), ("Text encoder Qwen3-VL-8B", te)]
+    elif model in ('flux2_klein_4b','zimage'):
+        scale=1 if params.get('quantize',True) else 2
+        base=(4.0 if model=='flux2_klein_4b' else 6.0)*scale
+        te=0 if params.get('cache_text_embeddings') else 4.0*scale
+        parts=[('Transformer (perkiraan perencanaan)',base),('Text encoder (perkiraan)',te)]
     else:
         parts = [("Transformer 2B (bf16)", 4.2), ("Text encoder Qwen3-0.6B", 0 if params.get("cache_text_embeddings") else 1.2)]
     parts.append((f"Aktivasi @ {res}px × batch {bs}", round(act, 1)))

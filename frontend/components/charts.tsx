@@ -4,11 +4,11 @@ import {
 } from "recharts";
 import { fmtNum } from "@/lib/format";
 
-const AX = { stroke: "#5c5c7a", fontSize: 11, tickLine: false, axisLine: false } as const;
-const GRID = <CartesianGrid stroke="rgb(255 255 255 / 0.05)" vertical={false} />;
+const AX = { stroke: "var(--chart-tick)", fontSize: 11, tickLine: false, axisLine: false } as const;
+const GRID = <CartesianGrid stroke="var(--chart-grid)" vertical={false} />;
 const TT = {
-  contentStyle: { background: "rgba(16,16,27,.95)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, fontSize: 12 },
-  labelStyle: { color: "#a3a3bf" },
+  contentStyle: { background: "var(--surface)", border: "1px solid var(--stroke)", borderRadius: 12, fontSize: 12 },
+  labelStyle: { color: "var(--color-ink-300)" },
 };
 export const SERIES_COLORS = ["#a78bfa", "#22d3ee", "#f472b6", "#fbbf24", "#34d399", "#fb7185"];
 
