@@ -1,6 +1,7 @@
 """Training jobs: persisted as data/jobs/<id>/job.json, run one at a time."""
 
 import json
+import math
 import os
 import re
 import signal
@@ -15,7 +16,7 @@ from . import builders, datasets
 from .config import JOBS_DIR, OUTPUTS_DIR, backend_status, load_settings
 
 STEP_RE = re.compile(r"(\d+)/(\d+)\s*\[")
-LOSS_RE = re.compile(r"(?:avr_loss|loss)\s*[:=]\s*([0-9.]+(?:e[-+]?\d+)?)", re.I)
+LOSS_RE = re.compile(r"(?:avr_loss|loss)\s*[:=]\s*(nan|inf|[0-9.]+(?:e[-+]?\d+)?)", re.I)
 LR_RE = re.compile(r"\blr\s*[:=]\s*([0-9.]+(?:e[-+]?\d+)?)", re.I)
 ETA_RE = re.compile(r"<([0-9:]+),")
 JOB_NAME_RE = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
@@ -125,6 +126,17 @@ class JobManager:
                     job[k] = data[k]
             job["progress"]["total"] = int(job["params"].get("steps") or 0)
             self._render(job)
+            self._save(job)
+            return job
+
+    def set_evaluation(self, job_id: str, step: int, data: dict) -> dict:
+        with self._lock:
+            job = self.get(job_id)
+            evs = job.setdefault("evaluations", {})
+            if data:
+                evs[str(int(step))] = {k: data[k] for k in ("likeness", "flexibility", "quality", "note") if k in data}
+            else:
+                evs.pop(str(int(step)), None)
             self._save(job)
             return job
 
@@ -273,8 +285,11 @@ class JobManager:
                         step, total = int(m.group(1)), int(m.group(2))
                         if total >= 1:
                             prog["step"], prog["total"] = step, total
+                            loss_val = None
                             if lm:
-                                prog["loss"] = float(lm.group(1))
+                                loss_val = float(lm.group(1))
+                                if math.isfinite(loss_val):
+                                    prog["loss"] = loss_val
                             em = ETA_RE.search(line)
                             if em:
                                 prog["eta"] = em.group(1)
@@ -282,7 +297,8 @@ class JobManager:
                             if step != last_step and lm:
                                 last_step = step
                                 with open(metrics_path, "a", encoding="utf-8") as mf:
-                                    mf.write(json.dumps({"step": step, "loss": prog["loss"],
+                                    finite = loss_val is not None and math.isfinite(loss_val)
+                                    mf.write(json.dumps({"step": step, "loss": loss_val if finite else None, "nan": not finite,
                                                          "lr": float(lrm.group(1)) if lrm else None,
                                                          "t": round(_now(), 1)}) + "\n")
                     if "Generating" in line and "sample" in line.lower():

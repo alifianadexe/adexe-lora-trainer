@@ -452,8 +452,28 @@ def recommend(model: str, goal: str, vram: int, num_images: int, backend: str = 
     return {"params": p, "reasons": reasons, "warnings": warnings}
 
 
-def analyze(model: str, params: dict, num_images: int) -> list:
-    """Live sanity checks shown while the user edits parameters."""
+def analyze(model: str, params: dict, num_images: int) -> dict:
+    """Live sanity checks + derived numbers shown while the user edits parameters."""
+    from .insights import estimate_vram, lr_schedule
+
+    notes = _analyze_notes(model, params, num_images)
+    n = max(1, int(num_images or 1))
+    rank = float(params.get("rank") or 1)
+    bs = int(params.get("batch_size") or 1) * int(params.get("grad_accum") or 1)
+    vram = estimate_vram(model, params)
+    if params.get("_vram") and vram["total_gb"] > float(params["_vram"]):
+        notes.insert(0, {"level": "bad", "msg": f"Perkiraan VRAM ~{vram['total_gb']} GB melebihi GPU {params['_vram']} GB. Turunkan resolusi, aktifkan cache/low VRAM, atau offloading."})
+    return {
+        "notes": notes,
+        "effective_lr": float(params.get("lr") or 0) * float(params.get("alpha") or rank) / rank,
+        "exposure": int(params.get("steps") or 0) * bs / n,
+        "checkpoints": int(params.get("steps") or 0) // max(1, int(params.get("save_every") or 1)),
+        "vram": vram,
+        "lr_schedule": lr_schedule(params, 60),
+    }
+
+
+def _analyze_notes(model: str, params: dict, num_images: int) -> list:
     out = []
     n = max(1, int(num_images or 1))
     lr = float(params.get("lr") or 0)
@@ -504,9 +524,18 @@ def analyze(model: str, params: dict, num_images: int) -> list:
 
 
 def public_catalog() -> dict:
+    from .knowledge import CONCEPTS, MISTAKES, PARAM_EXTRA, mistakes_for_param
+
+    params = deepcopy(PARAMS)
+    for p in params:
+        p.update(deepcopy(PARAM_EXTRA.get(p["key"], {})))
+        p["mistakes"] = sorted(set(p.get("mistakes", [])) | set(mistakes_for_param(p["key"])))
+        p.setdefault("level", "menengah")
     return {
         "models": deepcopy(MODELS),
         "goals": deepcopy(GOALS),
         "vram_tiers": VRAM_TIERS,
-        "params": deepcopy(PARAMS),
+        "params": params,
+        "mistakes": deepcopy(MISTAKES),
+        "concepts": deepcopy(CONCEPTS),
     }

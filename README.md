@@ -1,109 +1,97 @@
-# Adexe LoRA Studio
+# LoRA Studio
 
-Web GUI lokal untuk **training LoRA Qwen-Image 2.1 dan Anima Base**, dirancang sambil
-**belajar**: setiap parameter punya penjelasan ("apa ini, kalau dinaikkan/diturunkan apa
-efeknya, berapa sarannya"), parameter awal direkomendasikan beserta alasannya, dan hasil
-training ditampilkan sebagai grid preview per-checkpoint supaya kamu bisa melihat kapan
-LoRA mulai bagus dan kapan mulai overfit.
+Web lokal untuk **training LoRA Qwen-Image 2.1 dan Anima Base**, sekaligus tempat **belajar**
+membuat LoRA yang baik. Studio menjelaskan setiap parameter, menganalisis kurva loss secara
+otomatis, menunjukkan kesalahan training yang terdeteksi beserta solusinya, dan setelah kamu
+menilai checkpoint, ia menyarankan eksperimen berikutnya.
 
-Studio ini **bukan trainer baru**. Ia membuat konfigurasi lalu menjalankan trainer yang sudah
-terbukti:
+Studio ini **tidak membuat trainer baru**: ia menyusun konfigurasi lalu menjalankan trainer yang sudah terbukti.
 
 | Model | Backend | Catatan |
 |---|---|---|
-| Qwen-Image 2.1 | [ostris/ai-toolkit](https://github.com/ostris/ai-toolkit) (`arch: qwen_image_2`) | bobot otomatis diunduh dari `Comfy-Org/Qwen-Image-2.1` (int8 convrot) |
-| Anima Base | ai-toolkit (`arch: anima`) **atau** [kohya-ss/sd-scripts](https://github.com/kohya-ss/sd-scripts) (`anima_train_network.py`) | ai-toolkit unduh otomatis dari `circlestone-labs/Anima-Base-v1.0-Diffusers`; sd-scripts butuh file model lokal |
+| Qwen-Image 2.1 | [ostris/ai-toolkit](https://github.com/ostris/ai-toolkit) (`arch: qwen_image_2`) | bobot otomatis dari `Comfy-Org/Qwen-Image-2.1` (int8 convrot) |
+| Anima Base | ai-toolkit (`arch: anima`) **atau** [kohya-ss/sd-scripts](https://github.com/kohya-ss/sd-scripts) | sd-scripts butuh file model lokal |
 
 ## Fitur
 
-- **Dataset manager** — drag & drop gambar, edit caption per gambar (autosave), alat massal
-  (tambah trigger di depan, cari & ganti, hapus tag, underscore → spasi), filter
-  "tanpa caption / tanpa trigger / resolusi kecil", statistik tag, dan pemeriksaan kesehatan dataset.
-- **Auto-caption** lewat model vision lokal apa pun yang punya API OpenAI-compatible
-  (Ollama, LM Studio, vLLM) — gaya kalimat natural (Qwen) atau tag Danbooru (Anima).
-- **Wizard training** — pilih model → tujuan (karakter / style / konsep) → dataset + VRAM →
-  parameter yang direkomendasikan *dengan alasan*, analisis langsung (LR efektif, berapa kali
-  tiap gambar dilihat, risiko overfit), dan preview file konfigurasi asli sebelum dijalankan.
-- **Monitor job** — progress, ETA, grafik loss (mentah + rata-rata), grid preview
-  step × prompt, daftar checkpoint untuk diunduh, log lengkap, dan petunjuk otomatis saat error
-  (OOM, package hilang, HF gagal, dll).
-- **Iterasi** — tombol "Iterasi (v berikutnya)" menyalin semua parameter job agar kamu cukup
-  mengubah satu hal, plus kolom "catatan eksperimen".
-- **Halaman Belajar LoRA** — panduan berbahasa Indonesia: dataset, caption & trigger word,
-  rumus parameter, membaca underfit/overfit, resep per model, troubleshooting, kamus parameter.
+**Studio**
+- **Dataset**: drag & drop gambar, edit caption langsung, alat massal (trigger di depan, cari & ganti,
+  hapus tag, `_` → spasi), auto-caption lewat model vision lokal (Ollama / LM Studio / vLLM), skor
+  kesiapan dataset, dan **Caption Coach** yang menandai tiap caption (trigger hilang, quality tag,
+  caption duplikat, terlalu singkat, resolusi kecil).
+- **Wizard training**: pilih model → tujuan → dataset & VRAM → parameter rekomendasi **beserta
+  alasannya**. Panel analisis langsung menampilkan LR efektif, berapa kali tiap gambar dilihat,
+  **perkiraan VRAM** per komponen, dan jadwal learning rate. Mode Esensial / Semua parameter.
+  Perubahan dari rekomendasi ditandai dan bisa di-reset.
+- **Monitor job**
+  - **Diagnosa**: skor kesehatan run, kurva loss mentah + EMA dengan penanda paparan (50×/100×/150×),
+    dan temuan otomatis seperti loss naik, NaN, lonjakan, plateau, LR terlalu tinggi, atau risiko overfit.
+    Setiap temuan tertaut ke halaman kesalahan umum.
+  - **Preview**: grid step × prompt.
+  - **Evaluasi**: beri bintang kemiripan, fleksibilitas, dan kualitas untuk tiap checkpoint. Studio lalu
+    menyimpulkan apakah run overtrain atau undertrain, menyarankan perubahan parameter, dan bisa
+    membuat iterasi dengan saran itu dalam satu klik.
+  - **Checkpoint**: unduh file LoRA. Tab lain: log, parameter beserta artinya, dan config asli.
+- **Bandingkan**: diff parameter antar run (dengan peringatan jika lebih dari satu hal diubah),
+  overlay kurva loss, dan ringkasan skor evaluasi.
+
+**Belajar**
+- **Akademi LoRA**: panduan bab demi bab (diagram LoRA, dataset, caption, tiga rumus inti,
+  membaca underfit/overfit, resep per model, kamus konsep).
+- **Ensiklopedia Parameter**: tiap parameter dengan analogi, rumus, gejala jika terlalu tinggi
+  atau rendah, saran per model, dan kesalahan terkait. Juga bisa dibuka dari tombol **?** di mana saja.
+- **Kesalahan Umum**: 22 kasus gejala → penyebab → solusi, bisa dicari dari gejalanya
+  (misal "gosong", "NaN", "mirip dataset").
+- **Lab Interaktif**: simulator di browser untuk LR efektif, paparan vs overfit, kurva loss yang
+  berisik, distribusi timestep, LR scheduler, dan matematika rank.
 
 ## Kebutuhan
 
-- GPU NVIDIA + driver CUDA. Perkiraan VRAM:
-  - **Qwen-Image 2.1**: 24GB nyaman; 16GB bisa dengan low VRAM; 12GB sangat mepet (layer offloading, RAM sistem 32GB+).
-  - **Anima**: ~10GB di 512px, ~14GB di 1024px.
-- Python 3.10+ dan git. Ruang disk besar (Qwen-Image 2.1 + text encoder 8B = puluhan GB).
+- GPU NVIDIA + CUDA. Qwen-Image 2.1: 24GB nyaman, 16GB dengan low VRAM. Anima: ~10GB @512px, ~14GB @1024px.
+- Python 3.10+, **Node.js 20+** (untuk build frontend), git, dan ruang disk besar.
 
-## Instalasi
+## Instalasi & menjalankan
 
 ```bash
-git clone <repo ini> adexe-lora-trainer
-cd adexe-lora-trainer
-
-# 1. Install backend training ke ./backends (sekali saja)
+# 1. Backend training (sekali)
 bash scripts/install_backends.sh              # ai-toolkit
 bash scripts/install_backends.sh --sd-scripts # + sd-scripts (opsional, Anima)
 #   Windows: scripts\install_backends.bat [--sd-scripts]
-#   Ganti versi CUDA PyTorch: TORCH_INDEX=https://download.pytorch.org/whl/cu126 bash scripts/install_backends.sh
 
-# 2. Jalankan studio
-./run.sh          # Windows: run.bat
+# 2. Jalankan studio (build frontend otomatis saat pertama kali)
+./run.sh            # Windows: run.bat
 ```
 
-Buka **http://127.0.0.1:7860**.
+Buka **http://127.0.0.1:7860**. Setelah `git pull`, jalankan `REBUILD=1 ./run.sh` untuk membangun ulang frontend.
 
-Sudah punya ai-toolkit / sd-scripts di tempat lain? Lewati langkah 1 dan isi path-nya di
-halaman **Pengaturan**. Python backend dideteksi otomatis dari `venv/` atau `.venv/` di folder itu.
+Sudah punya ai-toolkit / sd-scripts di tempat lain? Isi path-nya di **Pengaturan**.
 
-> ai-toolkit harus versi terbaru (yang punya folder
-> `extensions_built_in/diffusion_models/qwen_image_2` dan `anima`). Dashboard menunjukkan
-> apakah kedua model terdeteksi.
-
-### Anima via sd-scripts
-
-Unduh dari [circlestone-labs/Anima](https://huggingface.co/circlestone-labs/Anima) folder
-`split_files/`: file diffusion model **Anima-Base**, text encoder Qwen3-0.6B, dan VAE. Isi ketiga
-path di Pengaturan.
-
-### Auto-caption (opsional)
-
-Contoh dengan Ollama:
+### Mode pengembangan
 
 ```bash
-ollama pull qwen2.5vl:7b
+./dev.sh   # API :7860 (auto-reload) + Next.js dev :3000 → buka http://localhost:3000
 ```
 
-Default Pengaturan sudah mengarah ke `http://localhost:11434/v1` dengan model `qwen2.5vl:7b`.
-
-## Alur kerja
-
-1. **Dataset** → buat dataset, isi trigger word, upload gambar, tulis/auto caption, cek panel kesehatan.
-2. **Training Baru** → pilih model & tujuan, baca alasan rekomendasi, ubah bila perlu, review config, mulai.
-3. **Jobs** → pantau preview tiap checkpoint. Pilih checkpoint terbaik (biasanya sebelum tanda overfit).
-4. **Iterasi** → ubah SATU parameter, tulis catatannya, bandingkan dengan versi sebelumnya.
-
-## Struktur
+## Arsitektur
 
 ```
-app/            FastAPI backend
-  presets.py    pengetahuan model, penjelasan parameter, mesin rekomendasi & analisis
-  builders.py   konversi parameter -> ai-toolkit YAML / sd-scripts TOML + command
-  jobs.py       antrian job, subprocess, parsing progress/loss, output
-  datasets.py   dataset, caption, thumbnail, operasi massal
-  captioner.py  auto-caption via API OpenAI-compatible
-web/            frontend tanpa build step (HTML + CSS + ES modules)
-data/           (dibuat otomatis) datasets/, jobs/, outputs/, settings.json
-backends/       (opsional) ai-toolkit & sd-scripts hasil script install
+app/                FastAPI (API + menyajikan frontend hasil build)
+  presets.py        info model, parameter, mesin rekomendasi, analisis langsung
+  knowledge.py      materi belajar: detail parameter, kesalahan umum, konsep
+  insights.py       diagnosa run, saran dari evaluasi, perkiraan VRAM, jadwal LR
+  builders.py       parameter → ai-toolkit YAML / sd-scripts TOML + command
+  jobs.py           antrian, subprocess, parsing progress/loss/NaN, evaluasi
+  datasets.py       dataset, caption, thumbnail, operasi massal
+frontend/           Next.js 16 (App Router, static export) + Tailwind 4 + Recharts
+  app/              halaman: dashboard, datasets, train, jobs, compare, learn/*, settings
+  components/       UI, grafik, panel penjelasan parameter
+data/               (otomatis) datasets/, jobs/, outputs/, settings.json
 ```
 
-Lokasi `data/` bisa diganti dengan env `LORA_STUDIO_DATA=/path/lain`. Port/host: `PORT=7861 HOST=0.0.0.0 ./run.sh`.
+Angka di studio (rekomendasi, perkiraan VRAM, kurva di Lab) adalah **titik awal dan alat belajar**,
+bukan jaminan. Itulah gunanya evaluasi dan iterasi.
 
-## Catatan lisensi model
+## Lisensi model
 
-Qwen-Image 2.1 (Qwen Research License) dan Anima (CircleStone Labs Non-Commercial License)
-**bukan** lisensi komersial bebas — cek lisensinya sebelum memakai LoRA hasil training secara komersial.
+Qwen-Image 2.1 (Qwen Research License) dan Anima (CircleStone Labs Non-Commercial License) bukan
+lisensi komersial bebas. Cek lisensinya sebelum memakai hasil training secara komersial.

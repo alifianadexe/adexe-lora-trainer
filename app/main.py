@@ -4,15 +4,18 @@ import threading
 from typing import List, Optional
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from . import builders, captioner, datasets, presets, system
+from . import builders, captioner, datasets, insights, presets, system
 from .config import WEB_DIR, backend_status, load_settings, save_settings
 from .jobs import JobManager
 
 app = FastAPI(title="Adexe LoRA Studio")
+# the Next.js dev server runs on another port; this is a local single-user tool
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 jobs = JobManager()
 
 
@@ -311,6 +314,55 @@ def job_file(job_id: str, rel: str, download: bool = False):
     return FileResponse(p, filename=p.name if download else None)
 
 
-# --------------------------------------------------------------------------- frontend
+def _dataset_for(job: dict):
+    try:
+        return datasets.details(job["dataset"])
+    except Exception:
+        return None
 
-app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
+
+@app.get("/api/jobs/{job_id}/insights")
+def job_insights(job_id: str):
+    job = jobs.get(job_id)
+    return insights.analyze_job(job, jobs.metrics(job_id), jobs.outputs(job_id), _dataset_for(job))
+
+
+class EvalReq(BaseModel):
+    likeness: Optional[int] = Field(None, ge=1, le=5)
+    flexibility: Optional[int] = Field(None, ge=1, le=5)
+    quality: Optional[int] = Field(None, ge=1, le=5)
+    note: str = ""
+
+
+@app.put("/api/jobs/{job_id}/evaluation/{step}")
+def put_evaluation(job_id: str, step: int, req: EvalReq):
+    data = {k: v for k, v in req.model_dump().items() if v not in (None, "")}
+    return jobs.set_evaluation(job_id, step, data)
+
+
+@app.get("/api/compare")
+def compare(ids: str):
+    out = []
+    for jid in [i for i in ids.split(",") if i][:6]:
+        job = jobs.get(jid)
+        summ = insights.summarize(jobs.metrics(jid))
+        out.append({
+            "id": job["id"], "name": job["name"], "model": job["model"], "status": job["status"],
+            "dataset": job["dataset"], "notes": job.get("notes", ""), "params": job["params"],
+            "progress": job["progress"], "evaluations": job.get("evaluations", {}),
+            "advice": insights.evaluation_advice(job),
+            "loss": {k: summ.get(k) for k in ("first_ema", "last_ema", "min", "change_pct", "noise")},
+            "series": [{"step": p["step"], "ema": p["ema"]} for p in summ.get("series", [])],
+        })
+    return out
+
+
+# --------------------------------------------------------------------------- frontend (Next.js static export)
+
+if (WEB_DIR / "index.html").exists():
+    app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
+else:
+    @app.get("/", response_class=HTMLResponse)
+    def _no_frontend():
+        return ("<h2>Frontend belum di-build</h2><p>Jalankan <code>cd frontend && npm install && npm run build</code>, "
+                "atau mode dev: <code>npm run dev</code> lalu buka http://localhost:3000</p>")

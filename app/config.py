@@ -14,7 +14,7 @@ OUTPUTS_DIR = DATA_DIR / "outputs"
 THUMBS_DIR = DATA_DIR / ".thumbs"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 BACKENDS_DIR = ROOT / "backends"
-WEB_DIR = ROOT / "web"
+WEB_DIR = ROOT / "frontend" / "out"
 
 for d in (DATA_DIR, DATASETS_DIR, JOBS_DIR, OUTPUTS_DIR, THUMBS_DIR):
     d.mkdir(parents=True, exist_ok=True)
