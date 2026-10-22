@@ -2,6 +2,7 @@
 
 import re
 import shlex
+import os
 from pathlib import Path
 
 import yaml
@@ -43,7 +44,7 @@ def build_ai_toolkit(job: dict, dataset_path: str) -> dict:
     cache_te = bool(p.get("cache_text_embeddings"))
 
     model_cfg = {
-        "name_or_path": MODELS[model]["hf"],
+        "name_or_path": p.get("base_model_path") or MODELS[model]["hf"],
         "arch": model,
         "quantize": bool(p.get("quantize")),
         "quantize_te": bool(p.get("quantize")),
@@ -73,6 +74,13 @@ def build_ai_toolkit(job: dict, dataset_path: str) -> dict:
         "num_repeats": int(p.get("num_repeats") or 1),
         "flip_x": bool(p.get("flip_x")),
     }
+    for key in ("control_path_1", "control_path_2"):
+        if p.get(key):
+            dataset[key] = p[key]
+    if p.get("control_path_1"):
+        dataset.update(caption_dropout_rate=0.0, num_workers=0, random_crop=False, random_scale=False, flip_x=False)
+        if model == "qwen_image_2":
+            model_cfg["model_kwargs"]["match_target_res"] = True
 
     train = {
         "batch_size": int(p.get("batch_size") or 1),
@@ -109,6 +117,16 @@ def build_ai_toolkit(job: dict, dataset_path: str) -> dict:
     if not sample["prompts"]:
         sample["prompts"] = ["a photo"]
         train["disable_sampling"] = True
+    if p.get("sample_control_1"):
+        width, height = sample["width"], sample["height"]
+        sample["samples"] = [
+            {
+                "prompt": re.sub(r"--[wh]\s+\d+", "", pr).strip() + f" --w {width} --h {height}",
+                "ctrl_img_1": p["sample_control_1"],
+                **({"ctrl_img_2": p["sample_control_2"]} if p.get("sample_control_2") else {}),
+            }
+            for pr in sample.pop("prompts")
+        ]
 
     process = {
         "type": "sd_trainer",
@@ -209,7 +227,11 @@ def sd_scripts_command(job: dict, job_dir: Path) -> dict:
     py = resolve_python(repo, s["sd_scripts_python"])
     out_dir = OUTPUTS_DIR / job["name"]
     argv = [
-        py, "-m", "accelerate.commands.launch", "--num_cpu_threads_per_process", "1",
+        py,
+        "-m",
+        "accelerate.commands.launch",
+        "--num_cpu_threads_per_process",
+        "1",
         "anima_train_network.py",
         f"--pretrained_model_name_or_path={s['anima_dit_path']}",
         f"--qwen3={s['anima_qwen3_path']}",
@@ -269,6 +291,9 @@ def sd_scripts_command(job: dict, job_dir: Path) -> dict:
 
 
 def command_preview(cmd: dict) -> str:
+    if os.name == "nt":
+        quote = lambda value: "'" + str(value).replace("'", "''") + "'"
+        return "Set-Location -LiteralPath " + quote(cmd["cwd"]) + "\n& " + " ".join(quote(a) for a in cmd["argv"])
     return "cd " + shlex.quote(cmd["cwd"]) + " && \\\n  " + " \\\n  ".join(shlex.quote(a) for a in cmd["argv"])
 
 

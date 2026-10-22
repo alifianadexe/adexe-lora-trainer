@@ -12,11 +12,78 @@ from pydantic import BaseModel, Field
 from . import builders, captioner, datasets, insights, presets, system
 from .config import WEB_DIR, backend_status, load_settings, save_settings
 from .jobs import JobManager
+from . import workspace
+from . import access, data_routes
+from . import model_catalog
+from .generation.app import app as generation_app
+from .generation import jobs as generation_jobs
+from .generation.engine import ENGINE
+from . import gpu
+from . import dsgen, dsgen_routes
 
 app = FastAPI(title="Adexe LoRA Studio")
 # the Next.js dev server runs on another port; this is a local single-user tool
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=True,
+)
+app.middleware("http")(access.guard)
 jobs = JobManager()
+app.include_router(data_routes.router(jobs))
+app.include_router(generation_app.router)
+app.include_router(dsgen_routes.router())
+
+@app.on_event("startup")
+def start_generation_worker():
+    generation_jobs.init()
+    dsgen.WORKER.start()
+
+@app.on_event("shutdown")
+def stop_generation_engine():
+    ENGINE.stop()
+
+@app.post("/api/generate/checkpoint")
+def use_training_checkpoint(data: dict):
+    from .generation.settings import CFG, CONFIG_FILE
+    from .generation import s2f
+    import json
+    job = jobs.get(data.get("job_id", ""))
+    if job["model"] != "qwen_image_2" or job.get("training_type") == "full_finetune":
+        raise ValueError("Generate Studio membutuhkan LoRA Qwen-Image 2.1 dengan conditioning sketch dan referensi.")
+    filename = data.get("file", "")
+    if filename not in {c["file"] for c in jobs.outputs(job["id"])["checkpoints"]}:
+        raise ValueError("Pilih checkpoint yang tersedia dari hasil training.")
+    checkpoint = jobs.output_file(job["id"], filename)
+    key = "trained_" + job["id"] + "_" + checkpoint.stem
+    from .generation.settings import CONFIG_LOCK
+    with CONFIG_LOCK:
+        entry = {"id": key, "label": job["name"] + " · " + checkpoint.name, "path": str(checkpoint)}
+        config = dict(CFG["sketch2final"])
+        config["extra_loras"] = [e for e in config.get("extra_loras", []) if e["id"] != key] + [entry]
+        config["selected_checkpoint"] = key
+        saved = json.loads(CONFIG_FILE.read_text(encoding="utf-8-sig")) if CONFIG_FILE.exists() else {}
+        saved["sketch2final"] = config
+        CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        temp = CONFIG_FILE.with_suffix(".tmp")
+        temp.write_text(json.dumps(saved, indent=2), encoding="utf-8")
+        temp.replace(CONFIG_FILE)
+        CFG["sketch2final"].update(config)
+        s2f.S2F.update(config)
+    return {"checkpoint": key}
+
+
+
+@app.get("/api/access/info")
+def access_info(request: Request):
+    return access.info(request)
+
+
+@app.post("/api/access/login")
+def access_login(request: Request, data: dict):
+    return access.login(request, data.get("code", ""))
 
 
 @app.exception_handler(ValueError)
@@ -61,6 +128,11 @@ def catalog():
     return presets.public_catalog()
 
 
+@app.get("/api/model-lab")
+def model_lab():
+    return model_catalog.catalog()
+
+
 class RecommendReq(BaseModel):
     model: str
     goal: str = "character"
@@ -98,6 +170,7 @@ class PreviewReq(BaseModel):
 @app.post("/api/preview-config")
 def preview_config(req: PreviewReq):
     from .config import JOBS_DIR
+
     job = req.model_dump()
     ds = str(datasets.dataset_dir(req.dataset))
     r = builders.render(job, ds, JOBS_DIR / "_preview")
@@ -201,7 +274,9 @@ class AutoCaptionReq(BaseModel):
 @app.post("/api/datasets/{name}/autocaption")
 def autocaption(name: str, req: AutoCaptionReq):
     info = datasets.details(name)
-    targets = [i for i in info["items"] if (req.overwrite or not i["caption"]) and (not req.files or i["file"] in req.files)]
+    targets = [
+        i for i in info["items"] if (req.overwrite or not i["caption"]) and (not req.files or i["file"] in req.files)
+    ]
     with _caption_lock:
         t = _caption_tasks.get(name)
         if t and t["running"]:
@@ -215,13 +290,17 @@ def autocaption(name: str, req: AutoCaptionReq):
                 break
             task["current"] = item["file"]
             try:
-                cap = captioner.caption_image(datasets.image_path(name, item["file"]), req.style, info["trigger_word"], req.extra)
+                cap = captioner.caption_image(
+                    datasets.image_path(name, item["file"]), req.style, info["trigger_word"], req.extra
+                )
                 datasets.set_caption(name, item["file"], cap)
                 task["ok"] = task.get("ok", 0) + 1
             except Exception as e:
                 task["errors"].append(f"{item['file']}: {e}")
                 if len(task["errors"]) >= 3 and not task.get("ok"):
-                    task["errors"].append("Dihentikan: 3 kegagalan berturut-turut. Cek endpoint auto-caption di Pengaturan.")
+                    task["errors"].append(
+                        "Dihentikan: 3 kegagalan berturut-turut. Cek endpoint auto-caption di Pengaturan."
+                    )
                     break
             task["done"] += 1
         task["running"] = False
@@ -245,6 +324,23 @@ def autocaption_cancel(name: str):
 
 
 # --------------------------------------------------------------------------- jobs
+
+
+@app.get("/api/workspace")
+def workspace_info():
+    info = workspace.project_summary()
+    info["job_id"] = next((j["id"] for j in jobs.list() if j["name"] == info.get("name")), None)
+    return info
+
+
+@app.get("/api/workspace/sample/{name}")
+def workspace_sample(name: str):
+    return FileResponse(workspace.project_sample(name))
+
+
+@app.post("/api/jobs/import-config")
+def import_job_config(data: dict):
+    return jobs.import_config(data.get("path", ""))
 
 
 @app.get("/api/jobs")
@@ -346,14 +442,22 @@ def compare(ids: str):
     for jid in [i for i in ids.split(",") if i][:6]:
         job = jobs.get(jid)
         summ = insights.summarize(jobs.metrics(jid))
-        out.append({
-            "id": job["id"], "name": job["name"], "model": job["model"], "status": job["status"],
-            "dataset": job["dataset"], "notes": job.get("notes", ""), "params": job["params"],
-            "progress": job["progress"], "evaluations": job.get("evaluations", {}),
-            "advice": insights.evaluation_advice(job),
-            "loss": {k: summ.get(k) for k in ("first_ema", "last_ema", "min", "change_pct", "noise")},
-            "series": [{"step": p["step"], "ema": p["ema"]} for p in summ.get("series", [])],
-        })
+        out.append(
+            {
+                "id": job["id"],
+                "name": job["name"],
+                "model": job["model"],
+                "status": job["status"],
+                "dataset": job["dataset"],
+                "notes": job.get("notes", ""),
+                "params": job["params"],
+                "progress": job["progress"],
+                "evaluations": job.get("evaluations", {}),
+                "advice": insights.evaluation_advice(job),
+                "loss": {k: summ.get(k) for k in ("first_ema", "last_ema", "min", "change_pct", "noise")},
+                "series": [{"step": p["step"], "ema": p["ema"]} for p in summ.get("series", [])],
+            }
+        )
     return out
 
 
@@ -362,7 +466,10 @@ def compare(ids: str):
 if (WEB_DIR / "index.html").exists():
     app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
 else:
+
     @app.get("/", response_class=HTMLResponse)
     def _no_frontend():
-        return ("<h2>Frontend belum di-build</h2><p>Jalankan <code>cd frontend && npm install && npm run build</code>, "
-                "atau mode dev: <code>npm run dev</code> lalu buka http://localhost:3000</p>")
+        return (
+            "<h2>Frontend belum di-build</h2><p>Jalankan <code>cd frontend && npm install && npm run build</code>, "
+            "atau mode dev: <code>npm run dev</code> lalu buka http://localhost:3000</p>"
+        )

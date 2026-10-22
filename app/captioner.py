@@ -40,7 +40,9 @@ def caption_image(path, style: str = "natural", trigger: str = "", extra: str = 
     if trigger:
         prompt += (
             f" The main subject is called '{trigger}'. Refer to it by that name instead of describing its "
-            "fixed identity features." if style == "natural" else ""
+            "fixed identity features."
+            if style == "natural"
+            else ""
         )
     if extra:
         prompt += " " + extra
@@ -49,13 +51,15 @@ def caption_image(path, style: str = "natural", trigger: str = "", extra: str = 
         headers["Authorization"] = f"Bearer {s['caption_api_key']}"
     body = {
         "model": s["caption_model"],
-        "messages": [{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{_encode(path)}"}},
-            ],
-        }],
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{_encode(path)}"}},
+                ],
+            }
+        ],
         "temperature": 0.2,
         "max_tokens": 300,
     }

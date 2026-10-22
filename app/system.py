@@ -13,9 +13,14 @@ def gpu_info() -> list:
         return []
     try:
         out = subprocess.run(
-            [exe, "--query-gpu=name,memory.total,memory.used,utilization.gpu,temperature.gpu",
-             "--format=csv,noheader,nounits"],
-            capture_output=True, text=True, timeout=5,
+            [
+                exe,
+                "--query-gpu=name,memory.total,memory.used,utilization.gpu,temperature.gpu",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
         ).stdout
     except Exception:
         return []
@@ -23,18 +28,22 @@ def gpu_info() -> list:
     for line in out.strip().splitlines():
         parts = [x.strip() for x in line.split(",")]
         if len(parts) >= 5:
+
             def num(x):
                 try:
                     return float(x)
                 except ValueError:
                     return None
-            gpus.append({
-                "name": parts[0],
-                "mem_total_mb": num(parts[1]),
-                "mem_used_mb": num(parts[2]),
-                "util": num(parts[3]),
-                "temp": num(parts[4]),
-            })
+
+            gpus.append(
+                {
+                    "name": parts[0],
+                    "mem_total_mb": num(parts[1]),
+                    "mem_used_mb": num(parts[2]),
+                    "util": num(parts[3]),
+                    "temp": num(parts[4]),
+                }
+            )
     return gpus
 
 

@@ -41,7 +41,9 @@ export function useCatalog(): Catalog | null {
   const [cat, setCat] = useState<Catalog | null>(null);
   useEffect(() => {
     if (!catalogCache) catalogCache = api.get<Catalog>("/api/catalog");
-    catalogCache.then(setCat).catch(() => { catalogCache = null; });
+    catalogCache.then(setCat).catch(() => {
+      catalogCache = null;
+    });
   }, []);
   return cat;
 }

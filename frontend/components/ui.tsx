@@ -6,7 +6,17 @@ import type { JobStatus, Level, Note } from "@/lib/types";
 
 export const cx = clsx;
 
-export function PageHeader({ title, subtitle, eyebrow, actions }: { title: ReactNode; subtitle?: ReactNode; eyebrow?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({
+  title,
+  subtitle,
+  eyebrow,
+  actions,
+}: {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  eyebrow?: ReactNode;
+  actions?: ReactNode;
+}) {
   return (
     <div className="mb-7 flex flex-wrap items-end justify-between gap-4 animate-fade-up">
       <div className="min-w-0">
@@ -19,15 +29,27 @@ export function PageHeader({ title, subtitle, eyebrow, actions }: { title: React
   );
 }
 
-export function Card({ className, children, hover, ...rest }: { className?: string; children: ReactNode; hover?: boolean } & React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cx("card", hover && "card-hover", className)} {...rest}>{children}</div>;
+export function Card({
+  className,
+  children,
+  hover,
+  ...rest
+}: { className?: string; children: ReactNode; hover?: boolean } & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={cx("card", hover && "card-hover", className)} {...rest}>
+      {children}
+    </div>
+  );
 }
 
 export function CardTitle({ icon, children, right, sub }: { icon?: ReactNode; children: ReactNode; right?: ReactNode; sub?: ReactNode }) {
   return (
     <div className="mb-4 flex items-start justify-between gap-3">
       <div>
-        <div className="flex items-center gap-2 text-[15px] font-semibold">{icon && <span className="text-brand-400">{icon}</span>}{children}</div>
+        <div className="flex items-center gap-2 text-[15px] font-semibold">
+          {icon && <span className="text-brand-400">{icon}</span>}
+          {children}
+        </div>
         {sub && <div className="mt-0.5 text-[13px] text-ink-400">{sub}</div>}
       </div>
       {right}
@@ -36,13 +58,29 @@ export function CardTitle({ icon, children, right, sub }: { icon?: ReactNode; ch
 }
 
 const LEVEL_STYLE: Record<Level, { box: string; icon: ReactNode }> = {
-  ok: { box: "border-emerald-500/25 bg-emerald-500/[0.07] text-emerald-200", icon: <CheckCircle2 className="size-4 shrink-0 text-emerald-400" /> },
+  ok: {
+    box: "border-emerald-500/25 bg-emerald-500/[0.07] text-emerald-200",
+    icon: <CheckCircle2 className="size-4 shrink-0 text-emerald-400" />,
+  },
   info: { box: "border-sky-500/25 bg-sky-500/[0.07] text-sky-200", icon: <Info className="size-4 shrink-0 text-sky-400" /> },
-  warn: { box: "border-amber-500/25 bg-amber-500/[0.07] text-amber-100", icon: <AlertTriangle className="size-4 shrink-0 text-amber-400" /> },
+  warn: {
+    box: "border-amber-500/25 bg-amber-500/[0.07] text-amber-100",
+    icon: <AlertTriangle className="size-4 shrink-0 text-amber-400" />,
+  },
   bad: { box: "border-rose-500/30 bg-rose-500/[0.08] text-rose-100", icon: <XCircle className="size-4 shrink-0 text-rose-400" /> },
 };
 
-export function Callout({ level = "info", title, children, className }: { level?: Level; title?: ReactNode; children?: ReactNode; className?: string }) {
+export function Callout({
+  level = "info",
+  title,
+  children,
+  className,
+}: {
+  level?: Level;
+  title?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+}) {
   const s = LEVEL_STYLE[level];
   return (
     <div className={cx("flex gap-2.5 rounded-xl border px-3.5 py-2.5 text-[13.5px] leading-relaxed", s.box, className)}>
@@ -57,7 +95,15 @@ export function Callout({ level = "info", title, children, className }: { level?
 
 export function Notes({ notes }: { notes: Note[] }) {
   if (!notes?.length) return null;
-  return <div className="space-y-2">{notes.map((n, i) => <Callout key={i} level={n.level}>{n.msg}</Callout>)}</div>;
+  return (
+    <div className="space-y-2">
+      {notes.map((n, i) => (
+        <Callout key={i} level={n.level}>
+          {n.msg}
+        </Callout>
+      ))}
+    </div>
+  );
 }
 
 export function Stat({ label, value, hint, accent }: { label: ReactNode; value: ReactNode; hint?: ReactNode; accent?: boolean }) {
@@ -91,7 +137,10 @@ export function StatusBadge({ status }: { status: JobStatus }) {
 export function Progress({ value, className }: { value: number; className?: string }) {
   return (
     <div className={cx("h-2 overflow-hidden rounded-full bg-white/[0.06]", className)}>
-      <div className="h-full rounded-full bg-gradient-to-r from-brand-500 via-fuchsia-500 to-cyan-400 transition-[width] duration-700" style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
+      <div
+        className="h-full rounded-full bg-gradient-to-r from-brand-500 to-brand-400 transition-[width] duration-700"
+        style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
+      />
     </div>
   );
 }
@@ -101,7 +150,12 @@ export function Spinner({ className }: { className?: string }) {
 }
 
 export function Loading({ label = "Memuat…" }: { label?: string }) {
-  return <div className="flex items-center gap-2 py-10 text-ink-400"><Spinner />{label}</div>;
+  return (
+    <div className="flex items-center gap-2 py-10 text-ink-400">
+      <Spinner />
+      {label}
+    </div>
+  );
 }
 
 export function Empty({ icon, title, children }: { icon?: ReactNode; title: ReactNode; children?: ReactNode }) {
@@ -114,26 +168,55 @@ export function Empty({ icon, title, children }: { icon?: ReactNode; title: Reac
   );
 }
 
-export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: T; label: ReactNode; badge?: ReactNode }[]; value: T; onChange: (v: T) => void }) {
+export function Tabs<T extends string>({
+  tabs,
+  value,
+  onChange,
+}: {
+  tabs: { id: T; label: ReactNode; badge?: ReactNode }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
   return (
     <div className="mb-5 flex gap-1 overflow-x-auto rounded-xl border border-white/[0.07] bg-ink-950/50 p-1">
       {tabs.map((t) => (
-        <button key={t.id} onClick={() => onChange(t.id)}
-          className={cx("flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-1.5 text-sm transition",
-            value === t.id ? "bg-white/[0.09] font-medium text-white shadow" : "text-ink-400 hover:text-ink-100")}>
-          {t.label}{t.badge}
+        <button
+          key={t.id}
+          onClick={() => onChange(t.id)}
+          className={cx(
+            "flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-1.5 text-sm transition",
+            value === t.id ? "bg-white/[0.09] font-medium text-white shadow" : "text-ink-400 hover:text-ink-100",
+          )}
+        >
+          {t.label}
+          {t.badge}
         </button>
       ))}
     </div>
   );
 }
 
-export function Segmented<T extends string | number>({ options, value, onChange }: { options: { value: T; label: ReactNode }[]; value: T; onChange: (v: T) => void }) {
+export function Segmented<T extends string | number>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: ReactNode }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
   return (
     <div className="inline-flex flex-wrap gap-1 rounded-xl border border-white/10 bg-ink-950/50 p-1">
       {options.map((o) => (
-        <button key={String(o.value)} type="button" onClick={() => onChange(o.value)}
-          className={cx("rounded-lg px-3 py-1 text-[13px] transition", value === o.value ? "bg-brand-500/90 text-white" : "text-ink-300 hover:bg-white/5")}>
+        <button
+          key={String(o.value)}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={cx(
+            "rounded-lg px-3 py-1 text-[13px] transition",
+            value === o.value ? "bg-brand-500/90 text-white" : "text-ink-300 hover:bg-white/5",
+          )}
+        >
           {o.label}
         </button>
       ))}
@@ -144,8 +227,13 @@ export function Segmented<T extends string | number>({ options, value, onChange 
 export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: ReactNode }) {
   return (
     <label className="inline-flex cursor-pointer items-center gap-2.5 text-sm">
-      <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}
-        className={cx("relative h-5 w-9 rounded-full transition", checked ? "bg-brand-500" : "bg-white/15")}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={cx("relative h-5 w-9 rounded-full transition", checked ? "bg-brand-500" : "bg-white/15")}
+      >
         <span className={cx("absolute top-0.5 size-4 rounded-full bg-white shadow transition-all", checked ? "left-[18px]" : "left-0.5")} />
       </button>
       {label}
@@ -162,9 +250,14 @@ export function Modal({ open, onClose, children, wide }: { open: boolean; onClos
   }, [open, onClose]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div className={cx("card relative max-h-[90vh] w-full overflow-auto animate-fade-up", wide ? "max-w-4xl" : "max-w-lg")}>
-        <button className="absolute right-3 top-3 rounded-lg p-1 text-ink-400 hover:bg-white/5 hover:text-white" onClick={onClose}><X className="size-4" /></button>
+        <button className="absolute right-3 top-3 rounded-lg p-1 text-ink-400 hover:bg-white/5 hover:text-white" onClick={onClose}>
+          <X className="size-4" />
+        </button>
         {children}
       </div>
     </div>
@@ -203,21 +296,35 @@ export function UIProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), kind === "bad" ? 7000 : 3200);
   }, []);
   const confirm = useCallback((msg: ReactNode) => new Promise<boolean>((resolve) => setAsk({ msg, resolve })), []);
-  const answer = (v: boolean) => { ask?.resolve(v); setAsk(null); };
+  const answer = (v: boolean) => {
+    ask?.resolve(v);
+    setAsk(null);
+  };
   return (
     <UICtx.Provider value={{ toast, confirm }}>
       {children}
       <div className="fixed bottom-5 right-5 z-[60] flex flex-col gap-2">
         {toasts.map((t) => (
-          <div key={t.id} className={cx("max-w-sm rounded-xl border px-4 py-2.5 text-sm shadow-2xl backdrop-blur animate-fade-up",
-            t.kind === "bad" ? "border-rose-500/40 bg-rose-950/90 text-rose-100" : "border-white/10 bg-ink-800/95 text-ink-100")}>{t.msg}</div>
+          <div
+            key={t.id}
+            className={cx(
+              "max-w-sm rounded-xl border px-4 py-2.5 text-sm shadow-2xl backdrop-blur animate-fade-up",
+              t.kind === "bad" ? "border-rose-500/40 bg-rose-950/90 text-rose-100" : "border-white/10 bg-ink-800/95 text-ink-100",
+            )}
+          >
+            {t.msg}
+          </div>
         ))}
       </div>
       <Modal open={!!ask} onClose={() => answer(false)}>
         <div className="pr-6 text-[15px] leading-relaxed">{ask?.msg}</div>
         <div className="mt-5 flex justify-end gap-2">
-          <button className="btn" onClick={() => answer(false)}>Batal</button>
-          <button className="btn btn-primary" onClick={() => answer(true)}>Ya, lanjut</button>
+          <button className="btn" onClick={() => answer(false)}>
+            Batal
+          </button>
+          <button className="btn btn-primary" onClick={() => answer(true)}>
+            Ya, lanjut
+          </button>
         </div>
       </Modal>
     </UICtx.Provider>
@@ -225,18 +332,29 @@ export function UIProvider({ children }: { children: ReactNode }) {
 }
 
 export function HealthRing({ value, size = 92 }: { value: number; size?: number }) {
-  const r = size / 2 - 7, c = 2 * Math.PI * r;
+  const r = size / 2 - 7,
+    c = 2 * Math.PI * r;
   const color = value >= 80 ? "#34d399" : value >= 55 ? "#fbbf24" : "#fb7185";
   return (
     <div className="relative grid place-items-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="rgb(255 255 255 / 0.08)" strokeWidth="7" fill="none" />
-        <circle cx={size / 2} cy={size / 2} r={r} stroke={color} strokeWidth="7" fill="none" strokeLinecap="round"
-          strokeDasharray={c} strokeDashoffset={c * (1 - value / 100)} style={{ transition: "stroke-dashoffset .8s" }} />
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--stroke)" strokeWidth="7" fill="none" />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          stroke={color}
+          strokeWidth="7"
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - value / 100)}
+          style={{ transition: "stroke-dashoffset .8s" }}
+        />
       </svg>
       <div className="absolute text-center">
         <div className="text-xl font-semibold tabular-nums">{value}</div>
-        <div className="-mt-0.5 text-[10px] uppercase tracking-wider text-ink-400">health</div>
+        <div className="-mt-0.5 text-[9px] uppercase tracking-wider text-ink-400">sinyal</div>
       </div>
     </div>
   );
@@ -245,6 +363,11 @@ export function HealthRing({ value, size = 92 }: { value: number; size?: number 
 export const LEVEL_LABEL: Record<string, string> = { pemula: "Pemula", menengah: "Menengah", lanjut: "Lanjut" };
 export function LevelChip({ level }: { level?: string }) {
   if (!level) return null;
-  const cls = level === "pemula" ? "text-emerald-300 border-emerald-500/30" : level === "lanjut" ? "text-fuchsia-300 border-fuchsia-500/30" : "text-sky-300 border-sky-500/30";
+  const cls =
+    level === "pemula"
+      ? "text-emerald-300 border-emerald-500/30"
+      : level === "lanjut"
+        ? "text-fuchsia-300 border-fuchsia-500/30"
+        : "text-sky-300 border-sky-500/30";
   return <span className={cx("chip", cls)}>{LEVEL_LABEL[level] || level}</span>;
 }
