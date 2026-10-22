@@ -2,6 +2,9 @@
 import { usePathname } from "next/navigation";
 import { ThemeSwitch } from "./theme";
 const labels: Record<string, string> = {
+  generate: "Generate Studio",
+  batch: "Batch produksi",
+  gallery: "Galeri karya",
   data: "Data & LAN",
   models: "Model Lab",
   "": "Ringkasan",

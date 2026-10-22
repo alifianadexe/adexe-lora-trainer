@@ -9,8 +9,8 @@ import { Topbar } from "@/components/topbar";
 import { AccessGate } from "@/components/access-gate";
 
 export const metadata: Metadata = {
-  title: "LoRA Studio",
-  description: "Train LoRA Qwen-Image 2.1 & Anima sambil belajar",
+  title: "Adexe Studio",
+  description: "Training LoRA, sketch ke final, batch produksi, dan galeri dalam satu studio",
   icons: {
     icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%238b5cf6'/><stop offset='1' stop-color='%23d946ef'/></linearGradient></defs><rect width='32' height='32' rx='9' fill='url(%23g)'/><text x='16' y='22' font-size='16' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='700'>L</text></svg>",
   },

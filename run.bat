@@ -7,15 +7,8 @@ if not exist .venv (
   .venv\Scripts\python -m pip install -q --upgrade pip
   .venv\Scripts\python -m pip install -q -r requirements.txt
 )
-if not exist frontend\out\index.html set REBUILD=1
-if "%REBUILD%"=="1" (
-  echo Membangun frontend Next.js...
-  pushd frontend
-  call npm install --no-audit --no-fund
-  set NEXT_TELEMETRY_DISABLED=1
-  call npm run build
-  popd
-)
+.venv\Scripts\python scripts\prepare.py
+if errorlevel 1 exit /b 1
 if "%PORT%"=="" set PORT=7862
 if "%HOST%"=="" set HOST=127.0.0.1
 echo LoRA Studio -^> http://127.0.0.1:%PORT%

@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { ArrowRight, BookOpen, CheckCircle2, Cpu, HardDrive, Images, Layers, Plus, Activity, FolderOpen } from "lucide-react";
+import { ArrowRight, BookOpen, CheckCircle2, Cpu, HardDrive, Images, Layers, Plus, Activity, FolderOpen, Sparkles, GraduationCap } from "lucide-react";
 import { Card, CardTitle, Callout, Progress, StatusBadge } from "@/components/ui";
 import { useApi } from "@/lib/hooks";
 import { enc, url } from "@/lib/api";
@@ -21,12 +21,22 @@ export default function Dashboard() {
         <div>
           <div className="section-title mb-2">ADEXE / MODEL WORKSPACE</div>
           <h1 className="text-3xl font-semibold tracking-tight">Buat, pelajari, sempurnakan.</h1>
-          <p className="mt-2 text-sm text-ink-400">Dataset, eksperimen, dan keputusan berikutnya dalam satu ruang kerja.</p>
+          <p className="mt-2 text-sm text-ink-400">Latih gaya, wujudkan panel, dan pelajari setiap keputusan dalam satu studio.</p>
         </div>
         <Link href="/train/" className="btn btn-primary">
           <Plus size={16} />
           Eksperimen baru
         </Link>
+      </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        {[
+          { href: "/jobs/", icon: Activity, number: "01", title: "Latih & evaluasi", description: "Ikuti eksperimen dan pilih checkpoint yang paling sesuai.", action: "Ruang training" },
+          { href: "/generate/", icon: Sparkles, number: "02", title: "Wujudkan karya", description: "Sketch ke final, lineart, dan produksi batch dalam satu alur.", action: "Generate Studio" },
+          { href: "/learn/lab/", icon: GraduationCap, number: "03", title: "Bangun intuisi", description: "Misi singkat dan simulator interaktif yang berjalan tanpa GPU.", action: "Mulai belajar" },
+        ].map(({ href, icon: Icon, number, title, description, action }) => <Link key={href} href={href} className="card card-hover group relative overflow-hidden !p-5">
+          <div className="mb-5 flex items-center justify-between"><span className="grid size-10 place-items-center rounded-xl border border-brand-500/15 bg-brand-500/[0.07] text-brand-400"><Icon size={19} /></span><span className="font-mono text-xs text-ink-400">{number}</span></div>
+          <h2 className="text-base font-semibold">{title}</h2><p className="mt-2 min-h-10 text-xs leading-5 text-ink-400">{description}</p><span className="mt-5 flex items-center gap-2 text-xs font-medium text-brand-400">{action}<ArrowRight size={13} className="transition group-hover:translate-x-1" /></span>
+        </Link>)}
       </div>
       {error && (
         <Callout level="bad" title="Koneksi ke backend terputus">

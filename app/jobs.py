@@ -386,6 +386,22 @@ class JobManager:
                 self._save(job)
 
     def _run(self, job: dict):
+        from . import gpu
+        from .generation.engine import ENGINE
+        with gpu.lease:
+            gpu.owner = "training"
+            try:
+                gpu.check_external_engine()
+                ENGINE.stop()
+                import sys
+                upscaler = sys.modules.get("app.generation.upscale")
+                if upscaler is not None:
+                    upscaler.release()
+                self._run_training(job)
+            finally:
+                gpu.owner = None
+
+    def _run_training(self, job: dict):
         job = self.get(job["id"])
         if job["status"] != "queued":
             return

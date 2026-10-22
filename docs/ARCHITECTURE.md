@@ -31,4 +31,14 @@ ZIP is a portable history snapshot, not a full machine backup. API keys and mode
 Run `run-lan.bat`; default port 7862. The host reveals the access code in Data & LAN. Remote clients must sign in. Use trusted local networks. No router port-forwarding is needed. `scripts/allow-lan.ps1` adds a port rule limited to LocalSubnet and active LAN interfaces; Windows Administrator rights are required for that rule.
 
 ## Validation limits
-The frontend is built with Next.js/TypeScript. No new model training or automated test suite was run for this refactor. Prior browser-tool access was blocked, so screenshot-based visual verification is not claimed.
+The frontend is built with Next.js/TypeScript. The unified studio has integration tests with synthetic fixtures and a fake engine, plus browser verification of the light/dark interfaces and learning missions. New GPU training and full generation are not run while existing GPU work is active.
+
+## Integrated generation
+
+`app/generation/` contains the imported generation pipeline as a proper Python package. Its API router is included under `/api/generate/`, preserving `/api/jobs` for training. The parent server's LAN authentication and origin checks protect both. One main startup lifecycle initializes the generation queue; importing generation modules does not start a GPU engine.
+
+`app/gpu.py` provides a shared process lease. Workers wait for the lease before launching training or generation. Training releases an owned inference engine before starting; an external legacy engine is detected without interrupting its work. The PyTorch upscaler runs under the configured training interpreter in a subprocess and releases its allocation on exit. Re-extracting lineart uses CPU processing and image resizing only.
+
+`frontend/components/generation/` preserves the generation features inside the existing layout. Generation CSS is scoped below `.generation-studio` and derives colors from trainer tokens. Navigation, typography, themes and access gates are shared. Favorites and guided-learning progress use browser local storage; image data is not stored there.
+
+The non-destructive import uses SQLite's backup API, requires no queued/running legacy jobs, and copies job images and batch exports into the ignored workspace. Character-specific outfit presets are data in the ignored local config, separate from tracked prompt-building code. Shared dataset/checkpoint paths remain external references. The training-history ZIP does not currently include the generation database or artwork: copy `studio-data/generation/` and the private generation config separately when moving machines.

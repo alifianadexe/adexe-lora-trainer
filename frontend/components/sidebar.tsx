@@ -13,6 +13,7 @@ import {
   Settings,
   Sparkles,
   TriangleAlert,
+  Wand2,
 } from "lucide-react";
 import { useApi } from "@/lib/hooks";
 import type { Job, Status } from "@/lib/types";
@@ -29,6 +30,15 @@ const NAV = [
       { href: "/train/", label: "Eksperimen baru", icon: Sparkles },
       { href: "/jobs/", label: "Training & evaluasi", icon: LineChart },
       { href: "/compare/", label: "Bandingkan", icon: GitCompareArrows },
+    ],
+  },
+  {
+    group: "Kreasi",
+    items: [
+      { href: "/generate/", label: "Generate Studio", icon: Sparkles },
+      { href: "/batch/", label: "Batch produksi", icon: Images },
+      { href: "/dsgen/", label: "Generator dataset", icon: Wand2 },
+      { href: "/gallery/", label: "Galeri karya", icon: Images },
     ],
   },
   {
@@ -68,7 +78,7 @@ export function Sidebar() {
         </div>
         <div>
           <div className="font-semibold leading-tight">Adexe Studio</div>
-          <div className="text-[11px] text-ink-400">train · pahami · ulangi</div>
+          <div className="text-[11px] text-ink-400">train · generate · create</div>
         </div>
       </Link>
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-2">
@@ -137,7 +147,7 @@ export function Sidebar() {
 export function MobileNav() {
   const path = usePathname() || "/";
   const items = NAV.flatMap((g) => g.items).filter((i) =>
-    ["/", "/workspace/", "/datasets/", "/train/", "/jobs/", "/learn/", "/models/", "/data/", "/settings/"].includes(i.href),
+    ["/", "/generate/", "/batch/", "/dsgen/", "/gallery/", "/workspace/", "/datasets/", "/train/", "/jobs/", "/learn/", "/models/", "/data/", "/settings/"].includes(i.href),
   );
   return (
     <nav className="sticky top-0 z-30 flex gap-1 overflow-x-auto border-b border-white/[0.06] bg-ink-900/80 px-3 py-2 backdrop-blur-xl lg:hidden">

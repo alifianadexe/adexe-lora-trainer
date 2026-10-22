@@ -1,13 +1,14 @@
 "use client";
 import { Calculator, Dices, FlaskConical, Layers, LineChart as LineIcon, Timer } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { LearningMissions } from "@/components/learning-missions";
 import { LRChart } from "@/components/charts";
 import { Card, CardTitle, PageHeader, Segmented, cx } from "@/components/ui";
 import { fmtNum } from "@/lib/format";
 
-const AX = { stroke: "#5c5c7a", fontSize: 11, tickLine: false, axisLine: false } as const;
-const TT = { contentStyle: { background: "rgba(16,16,27,.95)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, fontSize: 12 } };
+const AX = { stroke: "var(--chart-tick)", fontSize: 11, tickLine: false, axisLine: false } as const;
+const TT = { contentStyle: { background: "var(--surface)", border: "1px solid var(--stroke)", color: "var(--color-ink-100)", borderRadius: 12, fontSize: 12 } };
 
 function Slider({
   label,
@@ -28,16 +29,18 @@ function Slider({
   fmt?: (v: number) => string;
   log?: boolean;
 }) {
+  const sliderId = useId();
   // log sliders move in exponent space so 1e-6..1e-3 is usable
   const toPos = (v: number) => (log ? Math.log10(v) : v);
   const fromPos = (p: number) => (log ? Number((10 ** p).toPrecision(2)) : p);
   return (
     <div>
       <div className="mb-1.5 flex justify-between text-[13px]">
-        <span className="text-ink-300">{label}</span>
+        <label htmlFor={sliderId} className="text-ink-300">{label}</label>
         <span className="font-mono tabular-nums text-brand-200">{fmt(value)}</span>
       </div>
       <input
+        id={sliderId}
         type="range"
         className="w-full accent-violet-500"
         min={toPos(min)}
@@ -74,19 +77,19 @@ function LrLab() {
   const pos = (v: number) => Math.max(0, Math.min(100, ((Math.log10(v) + 6) / 3) * 100)); // 1e-6 .. 1e-3
   const verdict =
     eff < zones.lo
-      ? ["Terlalu lemah — LoRA nyaris tidak belajar", "text-sky-300"]
+      ? ["Skala kontribusi kecil; periksa hasil evaluasi", "text-sky-300"]
       : eff <= zones.sweet[1] && eff >= zones.sweet[0]
-        ? ["Zona aman yang umum dipakai", "text-emerald-300"]
+        ? ["Rentang ilustrasi pada simulator", "text-emerald-300"]
         : eff > zones.hi
-          ? ["Berbahaya — kemungkinan gosong / merusak model", "text-rose-300"]
-          : ["Masih mungkin, awasi preview", "text-amber-300"];
+          ? ["Skala besar; bandingkan preview dan kestabilan", "text-rose-300"]
+          : ["Bandingkan beberapa checkpoint", "text-amber-300"];
   return (
     <Card>
       <CardTitle
         icon={<Calculator className="size-4" />}
-        sub="Kenapa LR yang sama bisa berhasil di resep orang lain tapi gagal di punyamu."
+        sub="Eksplorasi faktor alpha/rank pada LoRA standar; ini bukan pengukuran laju belajar optimizer."
       >
-        Kalkulator LR efektif
+        Skala kontribusi LoRA
       </CardTitle>
       <Segmented
         value={model}
@@ -125,8 +128,8 @@ function LrLab() {
         <div className={cx("mt-3 text-sm font-medium", verdict[1])}>{verdict[0]}</div>
       </div>
       <p className="mt-4 text-[13px] text-ink-400">
-        Coba: alpha = 1, rank = 32, lr = 1e-4 (contoh di dokumentasi sd-scripts). LR efektifnya hanya ~3e-6 — itulah kenapa resep tidak bisa
-        disalin tanpa melihat alpha.
+        Faktor alpha/rank mengubah kontribusi cabang LoRA standar. Angka LR × alpha/rank di sini hanya ilustrasi skala;
+        efek optimisasi juga bergantung pada backend, optimizer, inisialisasi, dan variasi LoRA. Rentang berwarna bukan resep training.
       </p>
     </Card>
   );
@@ -163,7 +166,7 @@ function ExposureLab() {
       </div>
       <ResponsiveContainer width="100%" height={230}>
         <LineChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-          <CartesianGrid stroke="rgb(255 255 255 / 0.05)" vertical={false} />
+          <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
           <XAxis dataKey="step" {...AX} />
           <YAxis domain={[0, 100]} {...AX} />
           <Tooltip {...TT} labelFormatter={(l) => `step ${l}`} />
@@ -303,7 +306,7 @@ function LossNoiseLab() {
       </div>
       <ResponsiveContainer width="100%" height={230} className="mt-4">
         <LineChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-          <CartesianGrid stroke="rgb(255 255 255 / 0.05)" vertical={false} />
+          <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
           <XAxis dataKey="step" {...AX} />
           <YAxis {...AX} domain={[0, "auto"]} tickFormatter={(v) => Number(v).toFixed(2)} />
           <Line dataKey="loss" stroke="#a78bfa" strokeOpacity={0.3} dot={false} strokeWidth={1} isAnimationActive={false} />
@@ -373,6 +376,7 @@ export default function Lab() {
         title="Mainkan angkanya, lihat akibatnya"
         subtitle="Simulator kecil yang berjalan di browser — tanpa GPU. Cocok untuk membangun intuisi sebelum menghabiskan jam-jam training."
       />
+      <LearningMissions />
       <div className="grid gap-6 xl:grid-cols-2">
         <LrLab />
         <ExposureLab />

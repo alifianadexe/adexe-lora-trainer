@@ -644,6 +644,16 @@ function Evaluate({
 
 // ------------------------------------------------------------------ others
 function Checkpoints({ job, out, base, best }: { job: Job; out: Outputs | null; base: string; best?: number | null }) {
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState<string | null>(null);
+  async function useCheckpoint(file: string) {
+    setPending(file); setError("");
+    try {
+      await api.post("/api/generate/checkpoint", { job_id: job.id, file });
+      window.location.assign("/generate/");
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setPending(null); }
+  }
   return (
     <div className="space-y-5">
       <Card className="p-0">
@@ -667,6 +677,7 @@ function Checkpoints({ job, out, base, best }: { job: Job; out: Outputs | null; 
                   <td className="px-5 py-3 tabular-nums">{c.step ?? "final"}</td>
                   <td className="px-5 py-3 tabular-nums">{c.size_mb} MB</td>
                   <td className="px-5 py-3 text-right">
+                    {job.model === "qwen_image_2" && job.training_type !== "full_finetune" && <button className="btn btn-primary btn-sm mr-2" disabled={pending !== null} onClick={() => useCheckpoint(c.file)}>{pending === c.file ? "Menyiapkan…" : "Gunakan untuk generate"}</button>}
                     <a className="btn btn-sm" href={url(`${base}/file/${enc(c.file)}?download=true`)}>
                       <Download className="size-3.5" />
                       Unduh
@@ -680,6 +691,8 @@ function Checkpoints({ job, out, base, best }: { job: Job; out: Outputs | null; 
           <div className="py-12 text-center text-sm text-ink-400">Belum ada checkpoint.</div>
         )}
       </Card>
+      {error && <p role="alert" className="text-sm text-rose-500">{error}</p>}
+      {job.model === "qwen_image_2" && <Callout level="info" title="Lanjutkan ke Generate Studio">Pilih checkpoint LoRA yang dilatih untuk sketch → final dengan referensi karakter. Studio memakai model Qwen-Image 2.1 dan pengaturan karakter yang sama.</Callout>}
       <Callout level="info" title="Memakai LoRA di ComfyUI">
         Taruh file .safetensors di <code className="kbd">models/loras</code>.{" "}
         {job.model === "anima"

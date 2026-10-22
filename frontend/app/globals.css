@@ -147,3 +147,12 @@ button:not(:disabled), summary { cursor:pointer; }
 .hero-workspace > div:last-child { background-image:linear-gradient(var(--stroke) 1px,transparent 1px),linear-gradient(90deg,var(--stroke) 1px,transparent 1px); background-size:32px 32px; }
 .hero-workspace .pipeline-node { background:var(--surface); }
 input[type=checkbox] { accent-color:var(--color-brand-500); }
+
+/* Keyboard and motion preferences apply to both training and creative workspaces. */
+:where(button, a, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

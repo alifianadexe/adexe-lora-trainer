@@ -105,6 +105,7 @@ export type DatasetDetail = DatasetSummary & {
 export type JobStatus = "draft" | "queued" | "running" | "completed" | "failed" | "stopped";
 export type Evaluation = { likeness?: number; flexibility?: number; quality?: number; note?: string };
 export type Job = {
+  training_type?: "lora" | "full_finetune";
   imported_config?: Record<string, unknown>;
   source_config?: string;
   output_root?: string;

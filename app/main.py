@@ -15,6 +15,11 @@ from .jobs import JobManager
 from . import workspace
 from . import access, data_routes
 from . import model_catalog
+from .generation.app import app as generation_app
+from .generation import jobs as generation_jobs
+from .generation.engine import ENGINE
+from . import gpu
+from . import dsgen, dsgen_routes
 
 app = FastAPI(title="Adexe LoRA Studio")
 # the Next.js dev server runs on another port; this is a local single-user tool
@@ -28,6 +33,47 @@ app.add_middleware(
 app.middleware("http")(access.guard)
 jobs = JobManager()
 app.include_router(data_routes.router(jobs))
+app.include_router(generation_app.router)
+app.include_router(dsgen_routes.router())
+
+@app.on_event("startup")
+def start_generation_worker():
+    generation_jobs.init()
+    dsgen.WORKER.start()
+
+@app.on_event("shutdown")
+def stop_generation_engine():
+    ENGINE.stop()
+
+@app.post("/api/generate/checkpoint")
+def use_training_checkpoint(data: dict):
+    from .generation.settings import CFG, CONFIG_FILE
+    from .generation import s2f
+    import json
+    job = jobs.get(data.get("job_id", ""))
+    if job["model"] != "qwen_image_2" or job.get("training_type") == "full_finetune":
+        raise ValueError("Generate Studio membutuhkan LoRA Qwen-Image 2.1 dengan conditioning sketch dan referensi.")
+    filename = data.get("file", "")
+    if filename not in {c["file"] for c in jobs.outputs(job["id"])["checkpoints"]}:
+        raise ValueError("Pilih checkpoint yang tersedia dari hasil training.")
+    checkpoint = jobs.output_file(job["id"], filename)
+    key = "trained_" + job["id"] + "_" + checkpoint.stem
+    from .generation.settings import CONFIG_LOCK
+    with CONFIG_LOCK:
+        entry = {"id": key, "label": job["name"] + " · " + checkpoint.name, "path": str(checkpoint)}
+        config = dict(CFG["sketch2final"])
+        config["extra_loras"] = [e for e in config.get("extra_loras", []) if e["id"] != key] + [entry]
+        config["selected_checkpoint"] = key
+        saved = json.loads(CONFIG_FILE.read_text(encoding="utf-8-sig")) if CONFIG_FILE.exists() else {}
+        saved["sketch2final"] = config
+        CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        temp = CONFIG_FILE.with_suffix(".tmp")
+        temp.write_text(json.dumps(saved, indent=2), encoding="utf-8")
+        temp.replace(CONFIG_FILE)
+        CFG["sketch2final"].update(config)
+        s2f.S2F.update(config)
+    return {"checkpoint": key}
+
 
 
 @app.get("/api/access/info")
