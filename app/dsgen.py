@@ -4,7 +4,7 @@ Pipeline (no ComfyUI; everything runs from this app):
   1. Qwen-Image 2.1 through the app's AI Toolkit inference engine. The charsheet is the
      reference image; pose and expression come from text (VNCCS pose library labels and
      VNCCS emotion prompts). Qwen 2.1 keeps the sheet's proportions, line weight and colors.
-  2. SeedVR2 (standalone CLI, numz/ComfyUI-SeedVR2_VideoUpscaler) upscales 2x for ~2K.
+  2. SeedVR2 (app/generation/seedvr2.py, installed into backends/seedvr2) upscales 2x for ~2K.
   3. Optional lineart twin, extracted on CPU with the app's bold lineart extractor.
 Results land in normal trainer datasets (image + same-name .txt caption).
 """
@@ -23,6 +23,7 @@ from pathlib import Path
 from PIL import Image, ImageOps
 
 from . import datasets, gpu
+from .generation import seedvr2
 from .config import DATA_DIR, ROOT as APP_ROOT
 
 ROOT = DATA_DIR / "dataset-gen"
@@ -38,8 +39,8 @@ DEFAULT_CONFIG = {
     "height": 1728,
     "steps": 30,
     "guidance": 2.5,
-    "seedvr2_dir": str(APP_ROOT.parent / "seedvr2-cli"),
-    "seedvr2_model": "seedvr2_ema_7b_sharp_fp8_e4m3fn_mixed_block35_fp16.safetensors",
+    "seedvr2_dir": "",  # empty = backends/seedvr2
+    "seedvr2_model": seedvr2.DEFAULT_MODEL,
     "upscale_short_side": 1536,
     "lineart_stroke_px": 2.6,
     "vnccs_emotions": str(Path.home() / "ComfyUI-Installs/ComfyUI (1)/ComfyUI/custom_nodes/vnccs/emotions-config/emotions.json"),
@@ -129,12 +130,12 @@ def health() -> dict:
     except Exception as exc:  # unresolved AI Toolkit install
         out["python_ok"] = False
         out["error"] = str(exc)
-    sv = Path(cfg["seedvr2_dir"])
-    out["seedvr2"] = (sv / "inference_cli.py").exists()
-    out["seedvr2_model"] = (sv / "models" / "SEEDVR2" / cfg["seedvr2_model"]).exists()
+    sv = Path(cfg["seedvr2_dir"] or seedvr2.DEFAULT_DIR)
+    out["seedvr2"] = seedvr2.available(sv)
+    out["seedvr2_model"] = seedvr2.model_present(sv, cfg["seedvr2_model"])
     out["ready"] = out["python_ok"]
     if not out["seedvr2"]:
-        out["error"] = f"SeedVR2 CLI tidak ditemukan di {sv}; upscale akan dilewati"
+        out["error"] = f"SeedVR2 belum terpasang di {sv} (jalankan scripts/install_backends); upscale akan dilewati"
     return out
 
 
@@ -199,6 +200,22 @@ def pose_path(pid: str) -> Path:
         if p["id"] == pid:
             return POSES_DIR / p["file"]
     raise ValueError("Pose tidak ditemukan")
+
+
+def seed_builtin_poses() -> int:
+    """Fill an empty library with the built-in pose texts so a fresh install works without
+    VNCCS renders. Poses reach Qwen as text; the card image is only a UI thumbnail."""
+    from PIL import ImageDraw
+    if _poses_index():
+        return 0
+    for label, kind, text in BOOTSTRAP_POSES:
+        card = Image.new("RGB", (384, 512), (245, 245, 245))
+        draw = ImageDraw.Draw(card)
+        draw.multiline_text((24, 200), label.replace(", ", ",\n"), fill=(60, 60, 60), spacing=8)
+        buf = io.BytesIO()
+        card.save(buf, "PNG")
+        add_pose(buf.getvalue(), label, kind, text)
+    return len(BOOTSTRAP_POSES)
 
 
 def bootstrap_poses(source_dir: Path) -> int:
@@ -573,6 +590,7 @@ class Worker:
         if self.started:
             return
         self.started = True
+        seed_builtin_poses()
         for d in JOBS_DIR.iterdir():
             job = _read_json(d / "job.json", None)
             if job and "groups" not in job and job["status"] in ("queued", "running"):
@@ -689,7 +707,7 @@ class Worker:
                 return self._finish(jid)
             ENGINE.stop()  # free VRAM for SeedVR2
             ups = {}
-            if job.get("upscale") and (Path(cfg["seedvr2_dir"]) / "inference_cli.py").exists():
+            if job.get("upscale") and seedvr2.available(cfg["seedvr2_dir"]):
                 self._update(jid, lambda j: ([j["items"][i["id"]].update(status="upscaling") for i in ready],
                                              j.update(message=f"SeedVR2: upscale {len(ready)} gambar")))
                 ups = self._seedvr2(jid, [jdir / i["file"] for i in ready], cfg)
@@ -726,26 +744,14 @@ class Worker:
             self._finish(jid)
 
     def _seedvr2(self, jid: str, files: list, cfg: dict) -> dict:
-        """One CLI run for the whole batch (model loads once). Returns {input name: output path}."""
-        work = _job_dir(jid) / "svr_in"
-        out = _job_dir(jid) / "svr_out"
-        shutil.rmtree(work, ignore_errors=True)
-        shutil.rmtree(out, ignore_errors=True)
-        work.mkdir()
-        for f in files:
-            shutil.copyfile(f, work / f.name)
-        cmd = [_python(), "inference_cli.py", str(work), "--output", str(out), "--dit_model", cfg["seedvr2_model"],
-               "--resolution", str(cfg["upscale_short_side"]), "--batch_size", "1", "--color_correction", "lab",
-               "--vae_encode_tiled", "--vae_decode_tiled"]
-        log = open(_job_dir(jid) / "seedvr2.log", "w", encoding="utf-8")
-        env = dict(os.environ, PYTHONIOENCODING="utf-8")
-        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        self.proc = subprocess.Popen(cmd, cwd=cfg["seedvr2_dir"], stdout=log, stderr=subprocess.STDOUT, env=env, creationflags=flags)
-        self.proc.wait()
-        log.close()
-        self.proc = None
-        shutil.rmtree(work, ignore_errors=True)
-        return {f.name: out / f.name for f in files}
+        """One SeedVR2 run for the whole batch (model loads once). Returns {input name: output path}."""
+        jdir = _job_dir(jid)
+        try:
+            return seedvr2.upscale(_python(), files, jdir / "svr_out", jdir / "seedvr2.log", cfg["seedvr2_dir"],
+                                   cfg["seedvr2_model"], cfg["upscale_short_side"],
+                                   on_proc=lambda p: setattr(self, "proc", p))
+        finally:
+            self.proc = None
 
     def _finish(self, jid: str):
         def finish(j):

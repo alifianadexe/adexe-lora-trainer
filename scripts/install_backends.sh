@@ -19,6 +19,17 @@ fi
   venv/bin/pip install -r requirements.txt
 )
 
+# SeedVR2 upscaler for the dataset generator (runs in the ai-toolkit venv; models download on first use)
+SEEDVR2_COMMIT=4490bd1f482e026674543386bb2a4d176da245b9
+[ -d backends/seedvr2 ] || git clone https://github.com/numz/ComfyUI-SeedVR2_VideoUpscaler.git backends/seedvr2
+(
+  cd backends/seedvr2
+  git fetch origin "$SEEDVR2_COMMIT" && git checkout -q "$SEEDVR2_COMMIT"
+  git apply --reverse --check ../../scripts/patches/seedvr2-flash-attn.patch 2>/dev/null \
+    || git apply ../../scripts/patches/seedvr2-flash-attn.patch
+)
+backends/ai-toolkit/venv/bin/pip install rotary_embedding_torch
+
 if [ "$1" = "--sd-scripts" ]; then
   if [ ! -d backends/sd-scripts ]; then
     git clone https://github.com/kohya-ss/sd-scripts.git backends/sd-scripts

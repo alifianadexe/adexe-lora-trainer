@@ -1,0 +1,17 @@
+diff --git a/src/optimization/compatibility.py b/src/optimization/compatibility.py
+index c462022..9f04fdb 100644
+--- a/src/optimization/compatibility.py
++++ b/src/optimization/compatibility.py
+@@ -43,8 +43,10 @@ def ensure_flash_attn_safe():
+     
+     try:
+         import flash_attn
+-    except (ImportError, OSError):
+-        # DLL broken or not installed - create stub with proper __spec__
++    except ImportError:
++        return  # not installed: a stub breaks newer transformers' package lookup
++    except OSError:
++        # DLL broken - create stub with proper __spec__
+         stub = types.ModuleType('flash_attn')
+         stub.__spec__ = importlib.machinery.ModuleSpec('flash_attn', None)
+         stub.__file__ = None
