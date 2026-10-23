@@ -284,8 +284,44 @@ def save_sheet(data: bytes, filename: str) -> dict:
         im = im.convert("RGBA")
         im = Image.alpha_composite(Image.new("RGBA", im.size, (255, 255, 255, 255)), im)
     im.convert("RGB").save(SHEETS_DIR / f"{sid}.png")
-    return {"id": sid, "name": Path(filename or "charsheet").stem[:60], "width": im.width, "height": im.height,
+    name = Path(filename or "charsheet").stem[:60]
+    _write_json(SHEETS_DIR / f"{sid}.json", {"name": name, "view": sheet_view_from_name(name)})
+    return {"id": sid, "name": name, "width": im.width, "height": im.height, "view": sheet_view_from_name(name),
             "lineart": is_lineart(SHEETS_DIR / f"{sid}.png")}
+
+
+def sheet_view_from_name(name: str) -> str:
+    """Charsheet viewpoint from its file name: back / side / front (front also covers 3/4)."""
+    n = name.lower()
+    if any(k in n for k in ("back", "belakang")):
+        return "back"
+    if any(k in n for k in ("left", "right", "kiri", "kanan", "side", "samping")):
+        return "side"
+    return "front"
+
+
+def sheet_view(sid: str) -> str:
+    return _read_json(SHEETS_DIR / f"{sid}.json", {}).get("view", "front")
+
+
+def _pose_view(pose: dict) -> str:
+    text = f"{pose.get('label', '')} {pose.get('prompt', '')}".lower()
+    if "back view" in text or "seen from behind" in text:
+        return "back"
+    if "side view" in text or "profile" in text:
+        return "side"
+    return "front"
+
+
+def _sheets_for_pose(pose: dict, sheets: list) -> list:
+    """Reference sheets that match the pose's viewpoint. Side sheets on frontal poses made Qwen
+    redraw details as seen from the side (a bow turned into a necktie), so frontal poses only
+    get front / three-quarter sheets."""
+    want = _pose_view(pose)
+    pick = [s for s in sheets if sheet_view(s) == want]
+    if not pick and want == "side":
+        pick = [s for s in sheets if sheet_view(s) == "front"]
+    return pick or [s for s in sheets if sheet_view(s) != "back"] or sheets
 
 
 def sheet_path(sid: str) -> Path:
@@ -314,9 +350,13 @@ def sheet_panels(sid: str) -> list:
     mask = cv2.dilate(mask, np.ones((7, 7), np.uint8))
     n, _, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
     boxes = [stats[i] for i in range(1, n) if stats[i][4] > 0.01 * mask.size]
-    if len(boxes) < 2:
+    if not boxes:
         return [src]
     boxes.sort(key=lambda b: b[3], reverse=True)
+    if boxes[0][3] < 0.5 * small.shape[0]:  # no clear full-body figure: keep the sheet as is
+        return [src]
+    # A single figure is still cropped: on a big empty canvas the character gets only a
+    # fraction of the reference pixels, and Qwen then drifts on head-to-body proportions.
     out = []
     for b, dst in zip(boxes[:2], cached):
         x, y, w, h = (int(v / scale) for v in b[:4])
@@ -324,21 +364,19 @@ def sheet_panels(sid: str) -> list:
         crop = im.crop((max(0, x - pad), max(0, y - pad), min(im.width, x + w + pad), min(im.height, y + h + pad)))
         crop.save(dst)
         out.append(dst)
-    if boxes[0][3] < 0.5 * small.shape[0]:  # no clear full-body figure: keep the sheet as is
-        for c in cached:
-            c.unlink(missing_ok=True)
-        return [src]
     return out
 
 
-def build_prompt(pose: dict, expr: dict | None, lineart: bool, face_ref: bool = False) -> str:
-    framing = "Upper body portrait" if pose.get("kind") == "portrait" else "Full body"
+def build_prompt(pose: dict, expr: dict | None, lineart: bool, face_ref: bool = False, details: str = "") -> str:
+    framing = ("Upper body from the waist up, head and shoulders fully visible" if pose.get("kind") == "portrait"
+               else "Full body from head to feet")
     face = expr["prompt"] if expr else "The character has a calm neutral expression."
     return (f"Draw the character from picture 1 in a new pose: {pose.get('prompt') or pose['label']}. {face} "
             "Keep the character's face, hair, accessories, outfit, shoes, body proportions, head-to-body ratio and height "
             "exactly as in picture 1, with the same art style, line weight, line quality and coloring. "
+            + (f"These details must match picture 1 exactly: {details.strip().rstrip('.')}. " if details.strip() else "")
             + ("Picture 2 is a close-up of the same character's face; use it only for face, eye and hair details. " if face_ref else "")
-            + f"Draw one single character only, no extra panels or close-ups. {framing}, plain white background."
+            + f"Draw one single character only, no extra panels or close-ups. {framing}, the character large in the frame, never shrunk or squashed to fit the pose, plain white background."
             + (LINEART_LOCK if lineart else ""))
 
 
@@ -399,8 +437,8 @@ def create_job(data: dict) -> dict:
 
     rng = random.Random()
     items = []
-    for sid in sheets:
-        for pid in pose_ids:
+    for pid in pose_ids:
+        for sid in _sheets_for_pose(lib[pid], sheets):
             for eid in ([None] if include_neutral else []) + expr_ids:
                 for _ in range(variants):
                     items.append({"sheet": sid, "pose": pid, "expression": eid, "seed": rng.randint(1, 2**31 - 1),
@@ -418,7 +456,7 @@ def create_job(data: dict) -> dict:
     job = {
         "id": jid, "name": str(data.get("name") or dataset)[:80], "created": time.time(), "started": None, "finished": None,
         "status": "queued", "dataset": dataset, "trigger": str(data.get("trigger", "")).strip(),
-        "description": str(data.get("description", "")).strip(), "caption_style": data.get("caption_style", "natural"),
+        "description": str(data.get("description", "")).strip(), "details": str(data.get("details", "")).strip(), "caption_style": data.get("caption_style", "natural"),
         "caption_extra": str(data.get("caption_extra", "")), "sheets": sheets,
         "upscale": bool(data.get("upscale", True)), "lineart_twin": bool(data.get("lineart_twin", True)),
         "sheet_lineart": {s: is_lineart(sheet_path(s)) for s in sheets},
@@ -689,7 +727,7 @@ class Worker:
                                  j.update(message=f"Generate {label}")))
                     try:
                         refs = sheet_panels(it["sheet"])
-                        res = ENGINE.generate(None, build_prompt(pose, expr, lin, len(refs) > 1), refs, it["seed"],
+                        res = ENGINE.generate(None, build_prompt(pose, expr, lin, len(refs) > 1, job.get("details", "")), refs, it["seed"],
                                               sample_overrides={"width": cfg["width"], "height": cfg["height"],
                                                                 "num_inference_steps": cfg["steps"],
                                                                 "guidance_scale": cfg["guidance"]})
@@ -707,6 +745,8 @@ class Worker:
             ready = [i for i in job["items"] if i["status"] == "generated"]
             if not ready:
                 return self._finish(jid)
+            if ENGINE.state != "ready" and ENGINE._try_existing():
+                ENGINE.state = "ready"  # an engine left by a previous studio run still holds VRAM
             ENGINE.stop()  # free VRAM for SeedVR2
             ups = {}
             if job.get("upscale") and seedvr2.available(cfg["seedvr2_dir"]):

@@ -8,6 +8,7 @@ import struct
 import subprocess
 import threading
 import time
+from pathlib import Path
 
 import requests
 import yaml
@@ -46,6 +47,9 @@ class Engine:
                 return False
             self.token = data.get("token")
             r = requests.get(f"{self.base}/queue", headers=self._headers(), timeout=3)
+            # our own engine left running by a previous studio process (same job folder): adopt it
+            own = Path(data.get("job_folder", "")).resolve() == ENGINE_DIR.resolve()
+            self.adopted_pid = int(data["pid"]) if own and data.get("pid") else None
             return r.status_code == 200
         except Exception:
             return False
@@ -125,6 +129,16 @@ class Engine:
         return str(path(configured)) if configured else resolve_python(str(aitk), "")
 
     def stop(self):
+        if self.proc is None and getattr(self, "adopted_pid", None):
+            if os.name == "nt":
+                subprocess.run(["taskkill", "/PID", str(self.adopted_pid), "/T", "/F"],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            else:
+                os.kill(self.adopted_pid, 15)
+            self.adopted_pid = None
+            self.state, self.message = "stopped", "Engine mati; GPU tersedia untuk training"
+            return
         if self.state in ("ready", "starting") and self.proc is None:
             raise EngineError("Engine dipakai aplikasi lain. Hentikan studio lama sebelum training.")
         if self.proc and self.proc.poll() is None:
