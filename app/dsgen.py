@@ -270,9 +270,11 @@ def is_lineart(path: Path) -> bool:
     """Uncolored charsheet: nearly no saturation and mostly white paper."""
     with Image.open(path) as im:
         small = im.convert("RGB").resize((256, 256))
-    sat = sum(small.convert("HSV").getchannel("S").getdata()) / 65536
-    white = sum(1 for x in small.convert("L").getdata() if x > 230) / 65536
-    return sat < 12 and white > 0.6
+    # Judge color on the drawn pixels only: a big white canvas dilutes the mean of a pastel color sheet.
+    sats = small.convert("HSV").getchannel("S").getdata()
+    ink = [s for s, l in zip(sats, small.convert("L").getdata()) if l < 230]
+    white = 1 - len(ink) / 65536
+    return white > 0.6 and (not ink or sum(ink) / len(ink) < 15)
 
 
 def save_sheet(data: bytes, filename: str) -> dict:
