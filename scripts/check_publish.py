@@ -1,4 +1,4 @@
-"""Reject private runtime files, model weights, artwork and likely credentials in Git."""
+﻿"""Reject private runtime files, model weights, artwork and likely credentials in Git."""
 import argparse
 import json
 from pathlib import Path
@@ -7,7 +7,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE_EXTENSIONS = {".py", ".ts", ".tsx", ".js", ".mjs", ".css", ".md", ".json", ".txt", ".sh", ".bat", ".ps1", ".toml", ".yml", ".yaml"}
+SOURCE_EXTENSIONS = {".py", ".ts", ".tsx", ".js", ".mjs", ".css", ".md", ".json", ".txt", ".sh", ".bat", ".ps1", ".toml", ".yml", ".yaml", ".patch"}
 PRIVATE_DIRS = {"data", "studio-data", "outputs", "datasets", "models", "trainingruns", "backends", "node_modules", ".venv", "venv", "__pycache__", ".next", "out", "_backups"}
 PRIVATE_NAMES = {"config.json", "generation-config.json", "characters.json", "character_sources.json"}
 SECRET = re.compile(rb"(?:hf_[A-Za-z0-9]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{24,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)")
