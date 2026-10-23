@@ -731,7 +731,7 @@ class Worker:
                     lin_file = None
                     if job.get("lineart_twin") and not job["sheet_lineart"].get(it["sheet"], False):
                         lin_file = base.name.replace(".png", "_lineart.png")
-                        _lineart_twin(base, jdir / lin_file, cfg["lineart_stroke_px"] * base.width / 768)
+                        _lineart_twin(base, jdir / lin_file, cfg["lineart_stroke_px"] * Image.open(base).width / 768)
 
                     def done(j, iid=it["id"], u=up_file, l=lin_file):
                         item = j["items"][iid]
